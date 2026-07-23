@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayBar | QG Mestre</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --text: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 24px; color: var(--primary); }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #94a3b8; }
+        .form-control { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; }
+        .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: white; display: inline-block; width: 100%; }
+        .btn-primary { background: var(--primary); }
+        .btn-success { background: var(--success); width: auto; padding: 6px 12px; font-size: 12px; }
+        .btn-danger { background: var(--danger); width: auto; padding: 6px 12px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; font-weight: 600; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-active { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .badge-blocked { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fa-solid fa-server"></i> PlayBar Mestre</h1>
+            <div>Painel de Gestão e Licenciamento</div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h2><i class="fa-solid fa-plus"></i> Novo Cliente</h2>
+                <form id="addClientForm">
+                    <div class="form-group">
+                        <label>ID do Sistema (Ex: bar_do_ze)</label>
+                        <input type="text" id="clientId" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nome do Estabelecimento</label>
+                        <input type="text" id="clientName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo de Negócio</label>
+                        <select id="model" class="form-control" required>
+                            <option value="aluguel">Aluguer Mensal (Fixo)</option>
+                            <option value="porcentagem">Percentagem (%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Mensal (€ / R$) ou %</label>
+                        <input type="number" id="feeOrRate" class="form-control" value="150" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Vencimento</label>
+                        <input type="date" id="expiresAt" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Registar Bar</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2><i class="fa-solid fa-list"></i> Bares Ativos</h2>
+                <div style="overflow-x: auto;">
+                    <table id="clientsTable">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Modelo</th>
+                                <th>Vencimento</th>
+                                <th>A Receber / Faturado</th>
+                                <th>Estado</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsList">
+                            <tr><td colspan="6" style="text-align:center;">A carregar dados...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Carregar a lista de clientes
+        async function loadClients() {
+            try {
+                const res = await fetch('/api/admin/clients');
+                const data = await res.json();
+                if (data.ok) {
+                    const tbody = document.getElementById('clientsList');
+                    tbody.innerHTML = '';
+                    
+                    if (data.clients.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum cliente registado.</td></tr>';
+                        return;
+                    }
+
+                    data.clients.forEach(c => {
+                        const isExpired = new Date(c.expiresAt) < new Date();
+                        const statusBadge = c.isActive && !isExpired 
+                            ? '<span class="badge badge-active">Liberado</span>' 
+                            : '<span class="badge badge-blocked">Bloqueado/Vencido</span>';
+                        
+                        const actionBtnClass = c.isActive ? 'btn-danger' : 'btn-success';
+                        const actionBtnIcon = c.isActive ? 'fa-lock' : 'fa-unlock';
+                        const actionBtnText = c.isActive ? 'Bloquear' : 'Liberar';
+
+                        const dataVencimento = new Date(c.expiresAt).toLocaleDateString('pt-PT');
+                        
+                        let financeiroTxt = '';
+                        if (c.model === 'aluguel') {
+                            financeiroTxt = `<small style="color:#94a3b8;">Fixo:</small> $${c.monthlyFee}`;
+                        } else {
+                            financeiroTxt = `<small style="color:#94a3b8;">(${c.percentageRate}%) Faturou:</small> $${c.lastRevenueReported}<br><small style="color:#10b981;">Sua parte: $${c.valorCalculado}</small>`;
+                        }
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><strong>${c.clientName}</strong><br><small style="color:#94a3b8;">ID: ${c.clientId}</small></td>
+                                <td><span style="text-transform: capitalize;">${c.model}</span></td>
+                                <td style="${isExpired ? 'color:#ef4444; font-weight:bold;' : ''}">${dataVencimento}</td>
+                                <td>${financeiroTxt}</td>
+                                <td>${statusBadge}</td>
+                                <td>
+                                    <button class="btn ${actionBtnClass}" onclick="toggleStatus('${c._id}')">
+                                        <i class="fa-solid ${actionBtnIcon}"></i> ${actionBtnText}
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao carregar clientes", err);
+            }
+        }
+
+        // Adicionar Novo Cliente
+        document.getElementById('addClientForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const model = document.getElementById('model').value;
+            const feeOrRate = document.getElementById('feeOrRate').value;
+
+            const payload = {
+                clientId: document.getElementById('clientId').value,
+                clientName: document.getElementById('clientName').value,
+                model: model,
+                monthlyFee: model === 'aluguel' ? feeOrRate : 150,
+                percentageRate: model === 'porcentagem' ? feeOrRate : 20,
+                expiresAt: document.getElementById('expiresAt').value
+            };
+
+            const res = await fetch('/api/admin/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('Bar registado com sucesso!');
+                document.getElementById('addClientForm').reset();
+                loadClients();
+            } else {
+                alert('Erro ao registar. Verifique se o ID já existe.');
+            }
+        });
+
+        // Alternar Estado (Bloquear / Desbloquear)
+        async function toggleStatus(id) {
+            if(confirm("Tem a certeza que deseja alterar o estado de acesso deste bar?")) {
+                await fetch(`/api/admin/clients/${id}/toggle`, { method: 'POST' });
+                loadClients();
+            }
+        }
+
+        // Iniciar
+        loadClients();
+    </script>
+</body>
+</html>
