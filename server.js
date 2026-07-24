@@ -143,6 +143,43 @@ app.post('/api/trust-unlock', async (req, res) => {
 });
 
 // ==========================================
+// ROTA PARA GERAR O PIX DE PAGAMENTO DO CLIENTE
+// ==========================================
+app.post('/api/create-pix', async (req, res) => {
+    try {
+        const { client_id } = req.body;
+        const client = await Client.findOne({ client_id });
+
+        if (!client) {
+            return res.status(404).json({ ok: false, error: 'Cliente não encontrado' });
+        }
+
+        const payment = new Payment(clientMP);
+        const body = {
+            transaction_amount: Number(client.value) || 99.90,
+            description: `Renovação Mensalidade PlayBar - ${client.name || client_id}`,
+            payment_method_id: 'pix',
+            payer: {
+                email: `bar_${client_id}@playbar.com`,
+                first_name: client.name || 'Cliente PlayBar'
+            },
+            external_reference: client_id
+        };
+
+        const response = await payment.create({ body });
+
+        res.json({
+            ok: true,
+            qr_code: response.point_of_interaction.transaction_data.qr_code,
+            qr_code_base64: response.point_of_interaction.transaction_data.qr_code_base64
+        });
+    } catch (error) {
+        console.error('Erro ao gerar PIX no Mercado Pago:', error);
+        res.status(500).json({ ok: false, error: 'Erro ao gerar pagamento PIX' });
+    }
+});
+
+// ==========================================
 // ROTA DE WEBHOOK DO MERCADO PAGO (PIX AUTOMÁTICO)
 // ==========================================
 app.post('/api/webhook/mercadopago', async (req, res) => {
