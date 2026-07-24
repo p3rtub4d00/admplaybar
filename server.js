@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 dotenv.config();
 
@@ -12,6 +13,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
+
+// Inicializa o cliente do Mercado Pago usando a variável de ambiente
+const clientMP = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || 'SEU_ACCESS_TOKEN_AQUI' });
 
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -38,19 +42,17 @@ const Client = mongoose.model('Client', clientSchema);
 // FUNÇÃO INTELIGENTE DE AUTO-BLOQUEIO
 // ==========================================
 async function checkAutoBlock(client) {
-    // Se já está bloqueado ou não tem data, ignora
     if (!client.active || !client.dueDate) return client;
     
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera as horas para comparar só o dia
+    today.setHours(0, 0, 0, 0);
     
     const [y, m, d] = client.dueDate.split('-');
     const dueDate = new Date(y, m - 1, d);
     
-    // Se a data de vencimento é menor que hoje (ou seja, virou meia-noite do dia seguinte)
     if (dueDate < today) {
-        client.active = false; // Bloqueia!
-        await client.save();   // Salva no banco de dados automaticamente
+        client.active = false;
+        await client.save();
     }
     return client;
 }
@@ -70,7 +72,6 @@ app.get('/api/clients', async (req, res) => {
     try {
         let clients = await Client.find();
         
-        // Varre todos os clientes aplicando a regra do bloqueio automático
         for (let i = 0; i < clients.length; i++) {
             clients[i] = await checkAutoBlock(clients[i]);
         }
@@ -106,7 +107,6 @@ app.post('/api/toggle-status', async (req, res) => {
         const { client_id, active } = req.body;
         const updateData = { active };
         
-        // Se você liberar o cliente manualmente, zera a trava de confiança
         if (active) updateData.trustUnlockUntil = null; 
         
         await Client.findOneAndUpdate({ client_id }, updateData);
@@ -143,6 +143,50 @@ app.post('/api/trust-unlock', async (req, res) => {
 });
 
 // ==========================================
+// ROTA DE WEBHOOK DO MERCADO PAGO (PIX AUTOMÁTICO)
+// ==========================================
+app.post('/api/webhook/mercadopago', async (req, res) => {
+    try {
+        const body = req.body;
+
+        if (body.type === 'payment' || body.action === 'payment.created' || body.data) {
+            const paymentId = body.data?.id || body.id;
+
+            if (paymentId) {
+                const payment = new Payment(clientMP);
+                const paymentInfo = await payment.get({ id: paymentId });
+
+                if (paymentInfo && paymentInfo.status === 'approved') {
+                    const clientId = paymentInfo.external_reference;
+
+                    if (clientId) {
+                        const client = await Client.findOne({ client_id: clientId });
+                        
+                        if (client) {
+                            const nextDueDate = new Date();
+                            nextDueDate.setDate(nextDueDate.getDate() + 30);
+                            const formattedDueDate = nextDueDate.toISOString().split('T')[0];
+
+                            client.active = true;
+                            client.dueDate = formattedDueDate;
+                            client.trustUnlockUntil = null;
+                            await client.save();
+
+                            console.log(`[PIX APROVADO] Bar ${clientId} regularizado automaticamente via Webhook! Novo vencimento: ${formattedDueDate}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        console.error('Erro no Webhook do Mercado Pago:', error);
+        res.status(500).json({ error: 'Erro ao processar webhook' });
+    }
+});
+
+// ==========================================
 // ROTAS DO BAR
 // ==========================================
 
@@ -152,23 +196,19 @@ app.get('/api/check-license', async (req, res) => {
         let client = await Client.findOne({ client_id });
         
         if (client) {
-            // Se o bar conectar e estiver vencido, bloqueia ele na hora
             client = await checkAutoBlock(client);
             
-            // Grava a última vez que o bar deu sinal de vida
             client.lastSeen = new Date();
             await client.save();
 
             let isActive = client.active;
             
-            // Verifica o "Desbloqueio de Confiança"
             if (!isActive && client.trustUnlockUntil) {
                 const now = new Date();
                 const expireDate = new Date(client.trustUnlockUntil);
                 if (now < expireDate) {
-                    isActive = true; // Libera a tela do bar
+                    isActive = true; 
                 } else {
-                    // O prazo de confiança acabou! Limpa o botão para travar de vez
                     client.trustUnlockUntil = null;
                     await client.save();
                 }
