@@ -19,7 +19,6 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log('[PlayBar Master] Conectado ao MongoDB Mestre...'))
   .catch(err => console.error('Erro ao conectar ao MongoDB Mestre:', err));
 
-// Schema do Cliente (Adicionado campo trustUnlockUntil)
 const clientSchema = new mongoose.Schema({
     client_id: { type: String, required: true, unique: true },
     name: String,
@@ -30,10 +29,31 @@ const clientSchema = new mongoose.Schema({
     active: { type: Boolean, default: true },
     dailyRevenue: { type: Number, default: 0 },
     lastSeen: { type: Date, default: Date.now },
-    trustUnlockUntil: { type: Date, default: null } // NOVO CAMPO: Confiança
+    trustUnlockUntil: { type: Date, default: null } 
 });
 
 const Client = mongoose.model('Client', clientSchema);
+
+// ==========================================
+// FUNÇÃO INTELIGENTE DE AUTO-BLOQUEIO
+// ==========================================
+async function checkAutoBlock(client) {
+    // Se já está bloqueado ou não tem data, ignora
+    if (!client.active || !client.dueDate) return client;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Zera as horas para comparar só o dia
+    
+    const [y, m, d] = client.dueDate.split('-');
+    const dueDate = new Date(y, m - 1, d);
+    
+    // Se a data de vencimento é menor que hoje (ou seja, virou meia-noite do dia seguinte)
+    if (dueDate < today) {
+        client.active = false; // Bloqueia!
+        await client.save();   // Salva no banco de dados automaticamente
+    }
+    return client;
+}
 
 // ==========================================
 // ROTAS DO PAINEL MESTRE
@@ -48,7 +68,13 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/clients', async (req, res) => {
     try {
-        const clients = await Client.find();
+        let clients = await Client.find();
+        
+        // Varre todos os clientes aplicando a regra do bloqueio automático
+        for (let i = 0; i < clients.length; i++) {
+            clients[i] = await checkAutoBlock(clients[i]);
+        }
+        
         res.json(clients);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao buscar clientes' });
@@ -75,12 +101,13 @@ app.put('/api/clients/:id', async (req, res) => {
     }
 });
 
-// ALTERADO: Ao liberar de vez (pagamento), limpa o prazo de confiança
 app.post('/api/toggle-status', async (req, res) => {
     try {
         const { client_id, active } = req.body;
         const updateData = { active };
-        if (active) updateData.trustUnlockUntil = null; // Zera a confiança ao pagar
+        
+        // Se você liberar o cliente manualmente, zera a trava de confiança
+        if (active) updateData.trustUnlockUntil = null; 
         
         await Client.findOneAndUpdate({ client_id }, updateData);
         res.json({ ok: true });
@@ -99,12 +126,11 @@ app.delete('/api/clients/:id', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Desbloqueio de Confiança
 app.post('/api/trust-unlock', async (req, res) => {
     try {
         const { client_id, hours } = req.body;
         const unlockTime = new Date();
-        unlockTime.setHours(unlockTime.getHours() + (hours || 24)); // Soma 24 horas
+        unlockTime.setHours(unlockTime.getHours() + (hours || 24)); 
         
         await Client.findOneAndUpdate(
             { client_id }, 
@@ -120,25 +146,31 @@ app.post('/api/trust-unlock', async (req, res) => {
 // ROTAS DO BAR
 // ==========================================
 
-// ALTERADO: Verifica se está ativo OU se o desbloqueio de confiança ainda não venceu
 app.get('/api/check-license', async (req, res) => {
     try {
         const { client_id } = req.query;
-        const client = await Client.findOneAndUpdate(
-            { client_id }, 
-            { lastSeen: new Date() }, 
-            { new: true }
-        );
+        let client = await Client.findOne({ client_id });
         
         if (client) {
+            // Se o bar conectar e estiver vencido, bloqueia ele na hora
+            client = await checkAutoBlock(client);
+            
+            // Grava a última vez que o bar deu sinal de vida
+            client.lastSeen = new Date();
+            await client.save();
+
             let isActive = client.active;
             
-            // Lógica do Desbloqueio Temporário
+            // Verifica o "Desbloqueio de Confiança"
             if (!isActive && client.trustUnlockUntil) {
                 const now = new Date();
                 const expireDate = new Date(client.trustUnlockUntil);
                 if (now < expireDate) {
-                    isActive = true; // Libera pois ainda está no prazo extra
+                    isActive = true; // Libera a tela do bar
+                } else {
+                    // O prazo de confiança acabou! Limpa o botão para travar de vez
+                    client.trustUnlockUntil = null;
+                    await client.save();
                 }
             }
             
