@@ -1,191 +1,287 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlayBar | QG Mestre</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>PlayBar Mestre | QG</title>
+    <!-- Ícones do FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --text: #f8fafc; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: var(--primary); }
-        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .header h1 { color: #3b82f6; display: flex; align-items: center; gap: 10px; }
+        
+        .container { display: flex; gap: 30px; flex-wrap: wrap; }
+        .card { background-color: #1e293b; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .form-section { flex: 1; min-width: 300px; max-width: 400px; height: fit-content; }
+        .table-section { flex: 2; min-width: 400px; }
+        
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #94a3b8; }
-        .form-control { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; }
-        .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: white; display: inline-block; width: 100%; }
-        .btn-primary { background: var(--primary); }
-        .btn-success { background: var(--success); width: auto; padding: 6px 12px; font-size: 12px; }
-        .btn-danger { background: var(--danger); width: auto; padding: 6px 12px; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
-        th { color: #94a3b8; font-weight: 600; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge-active { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-        .badge-blocked { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+        label { display: block; margin-bottom: 5px; color: #94a3b8; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background-color: #0f172a; color: white; outline: none; }
+        input:focus, select:focus { border-color: #3b82f6; }
+        
+        .btn { width: 100%; padding: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; padding: 12px; color: #94a3b8; border-bottom: 1px solid #334155; }
+        td { padding: 15px 12px; border-bottom: 1px solid #334155; vertical-align: middle; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .status-active { background-color: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .status-blocked { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        
+        .action-btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .btn-block { background-color: #ef4444; }
+        .btn-block:hover { background-color: #dc2626; }
+        .btn-unblock { background-color: #10b981; }
+        .btn-unblock:hover { background-color: #059669; }
+        .btn-delete { background-color: #374151; }
+        .btn-delete:hover { background-color: #4b5563; }
+
+        /* Estilos do Overlay de Login */
+        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: #1e293b; padding: 40px; border-radius: 8px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); width: 100%; max-width: 350px; }
     </style>
 </head>
 <body>
+
+    <!-- TELA DE LOGIN (SOBREPÕE TUDO) -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2 style="color: #3b82f6; margin-bottom: 25px; font-size: 1.8rem;"><i class="fas fa-server"></i> PlayBar QG</h2>
+            <input type="password" id="masterPassword" placeholder="Digite a Senha Mestra" style="margin-bottom: 15px;">
+            <button onclick="login()" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+            <p id="loginError" style="color: #ef4444; margin-top: 15px; display: none; font-size: 0.9rem; font-weight: bold;">Senha incorreta!</p>
+        </div>
+    </div>
+
+    <!-- CABEÇALHO -->
+    <div class="header">
+        <h1><i class="fas fa-server"></i> PlayBar Mestre</h1>
+        <p style="color: #94a3b8; font-weight: bold;">Painel de Gestão e Licenciamento</p>
+    </div>
+
     <div class="container">
-        <div class="header">
-            <h1><i class="fa-solid fa-server"></i> PlayBar Mestre</h1>
-            <div>Painel de Gestão e Licenciamento</div>
+        <!-- ÁREA DO FORMULÁRIO -->
+        <div class="card form-section">
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;"><i class="fas fa-plus"></i> Novo Cliente</h2>
+            <form id="registerForm" onsubmit="registerClient(event)">
+                <div class="form-group">
+                    <label>ID do Sistema (Sem espaços. Ex: bar_do_ze)</label>
+                    <input type="text" id="client_id" required>
+                </div>
+                <div class="form-group">
+                    <label>Nome do Estabelecimento</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Modelo de Negócio</label>
+                    <select id="model">
+                        <option value="Aluguel Mensal (Fixo)">Aluguel Mensal (Fixo)</option>
+                        <option value="Percentagem (Variável)">Percentagem (Variável)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Valor Mensal (€ / R$) ou %</label>
+                    <input type="number" id="value" required>
+                </div>
+                <div class="form-group">
+                    <label>Data de Vencimento</label>
+                    <input type="date" id="dueDate" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+                    <i class="fas fa-save"></i> Registar Bar
+                </button>
+            </form>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h2><i class="fa-solid fa-plus"></i> Novo Cliente</h2>
-                <form id="addClientForm">
-                    <div class="form-group">
-                        <label>ID do Sistema (Ex: bar_do_ze)</label>
-                        <input type="text" id="clientId" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Nome do Estabelecimento</label>
-                        <input type="text" id="clientName" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Modelo de Negócio</label>
-                        <select id="model" class="form-control" required>
-                            <option value="aluguel">Aluguer Mensal (Fixo)</option>
-                            <option value="porcentagem">Percentagem (%)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Valor Mensal (€ / R$) ou %</label>
-                        <input type="number" id="feeOrRate" class="form-control" value="150" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Data de Vencimento</label>
-                        <input type="date" id="expiresAt" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Registar Bar</button>
-                </form>
-            </div>
-
-            <div class="card">
-                <h2><i class="fa-solid fa-list"></i> Bares Ativos</h2>
-                <div style="overflow-x: auto;">
-                    <table id="clientsTable">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Modelo</th>
-                                <th>Vencimento</th>
-                                <th>A Receber / Faturado</th>
-                                <th>Estado</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="clientsList">
-                            <tr><td colspan="6" style="text-align:center;">A carregar dados...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+        <!-- ÁREA DA TABELA -->
+        <div class="card table-section">
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;"><i class="fas fa-list"></i> Bares Ativos</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Modelo</th>
+                            <th>Vencimento</th>
+                            <th>A Receber / Faturado</th>
+                            <th>Estado</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTable">
+                        <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding: 30px;">A carregar dados...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
+    <!-- SCRIPTS DE FUNCIONAMENTO -->
     <script>
-        // Carregar a lista de clientes
-        async function loadClients() {
-            try {
-                const res = await fetch('/api/admin/clients');
-                const data = await res.json();
-                if (data.ok) {
-                    const tbody = document.getElementById('clientsList');
-                    tbody.innerHTML = '';
-                    
-                    if (data.clients.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum cliente registado.</td></tr>';
-                        return;
-                    }
-
-                    data.clients.forEach(c => {
-                        const isExpired = new Date(c.expiresAt) < new Date();
-                        const statusBadge = c.isActive && !isExpired 
-                            ? '<span class="badge badge-active">Liberado</span>' 
-                            : '<span class="badge badge-blocked">Bloqueado/Vencido</span>';
-                        
-                        const actionBtnClass = c.isActive ? 'btn-danger' : 'btn-success';
-                        const actionBtnIcon = c.isActive ? 'fa-lock' : 'fa-unlock';
-                        const actionBtnText = c.isActive ? 'Bloquear' : 'Liberar';
-
-                        const dataVencimento = new Date(c.expiresAt).toLocaleDateString('pt-PT');
-                        
-                        let financeiroTxt = '';
-                        if (c.model === 'aluguel') {
-                            financeiroTxt = `<small style="color:#94a3b8;">Fixo:</small> $${c.monthlyFee}`;
-                        } else {
-                            financeiroTxt = `<small style="color:#94a3b8;">(${c.percentageRate}%) Faturou:</small> $${c.lastRevenueReported}<br><small style="color:#10b981;">Sua parte: $${c.valorCalculado}</small>`;
-                        }
-
-                        tbody.innerHTML += `
-                            <tr>
-                                <td><strong>${c.clientName}</strong><br><small style="color:#94a3b8;">ID: ${c.clientId}</small></td>
-                                <td><span style="text-transform: capitalize;">${c.model}</span></td>
-                                <td style="${isExpired ? 'color:#ef4444; font-weight:bold;' : ''}">${dataVencimento}</td>
-                                <td>${financeiroTxt}</td>
-                                <td>${statusBadge}</td>
-                                <td>
-                                    <button class="btn ${actionBtnClass}" onclick="toggleStatus('${c._id}')">
-                                        <i class="fa-solid ${actionBtnIcon}"></i> ${actionBtnText}
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-            } catch (err) {
-                console.error("Erro ao carregar clientes", err);
-            }
-        }
-
-        // Adicionar Novo Cliente
-        document.getElementById('addClientForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const model = document.getElementById('model').value;
-            const feeOrRate = document.getElementById('feeOrRate').value;
-
-            const payload = {
-                clientId: document.getElementById('clientId').value,
-                clientName: document.getElementById('clientName').value,
-                model: model,
-                monthlyFee: model === 'aluguel' ? feeOrRate : 150,
-                percentageRate: model === 'porcentagem' ? feeOrRate : 20,
-                expiresAt: document.getElementById('expiresAt').value
-            };
-
-            const res = await fetch('/api/admin/clients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                alert('Bar registado com sucesso!');
-                document.getElementById('addClientForm').reset();
+        // --- 1. SISTEMA DE LOGIN ---
+        window.onload = () => {
+            // Verifica se o usuário já fez login nesta sessão
+            if (sessionStorage.getItem('playbar_logged') === 'true') {
+                document.getElementById('loginOverlay').style.display = 'none';
                 loadClients();
-            } else {
-                alert('Erro ao registar. Verifique se o ID já existe.');
             }
+        };
+
+        // Permite logar apertando ENTER no teclado
+        document.getElementById('masterPassword').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') login();
         });
 
-        // Alternar Estado (Bloquear / Desbloquear)
-        async function toggleStatus(id) {
-            if(confirm("Tem a certeza que deseja alterar o estado de acesso deste bar?")) {
-                await fetch(`/api/admin/clients/${id}/toggle`, { method: 'POST' });
-                loadClients();
+        async function login() {
+            const pass = document.getElementById('masterPassword').value;
+            const btn = document.querySelector('.login-box button');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass })
+                });
+                
+                if (res.ok) {
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    sessionStorage.setItem('playbar_logged', 'true');
+                    loadClients(); // Carrega os dados apenas após o login
+                } else {
+                    document.getElementById('loginError').style.display = 'block';
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+                }
+            } catch (error) {
+                alert("Erro ao conectar com o servidor.");
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
             }
         }
 
-        // Iniciar
-        loadClients();
+        // --- 2. CARREGAR E EXIBIR CLIENTES ---
+        async function loadClients() {
+            try {
+                const res = await fetch('/api/clients');
+                const clients = await res.json();
+                renderClients(clients);
+            } catch (err) {
+                document.getElementById('clientsTable').innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding: 30px;">Erro ao carregar dados. Verifique a conexão com o banco.</td></tr>`;
+            }
+        }
+
+        function renderClients(clients) {
+            const tbody = document.getElementById('clientsTable');
+            tbody.innerHTML = '';
+            
+            if (clients.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding: 30px;">Nenhum cliente cadastrado. Adicione um ao lado!</td></tr>`;
+                return;
+            }
+
+            clients.forEach(client => {
+                // Ajuste visual da data (de aaaa-mm-dd para dd/mm/aaaa)
+                let dateStr = client.dueDate;
+                if(client.dueDate && client.dueDate.includes('-')) {
+                    const [y, m, d] = client.dueDate.split('-');
+                    dateStr = `${d}/${m}/${y}`;
+                }
+
+                // Cálculo e formatação financeira
+                let financeText = '';
+                if (client.model.includes('Aluguel')) {
+                    financeText = `<span style="color:#94a3b8;">Fixo:</span> <b style="font-size: 1.1rem;">$${client.value}</b>`;
+                } else {
+                    const userShare = ((client.dailyRevenue || 0) * (client.value / 100)).toFixed(2);
+                    financeText = `<span style="color:#94a3b8;">(${client.value}%) Faturou:</span> $${client.dailyRevenue || 0}<br><span style="color:#10b981; font-weight:bold; font-size:0.9rem;">Sua parte: $${userShare}</span>`;
+                }
+
+                // Criação da linha da tabela
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <b style="font-size: 1.1rem;">${client.name}</b><br>
+                        <span style="font-size: 0.8rem; color: #94a3b8;">ID: ${client.client_id}</span>
+                    </td>
+                    <td style="color:#e2e8f0;">${client.model.split(' ')[0]}</td>
+                    <td style="color:${client.active ? '#ef4444' : '#94a3b8'}; font-weight:bold;">${dateStr}</td>
+                    <td>${financeText}</td>
+                    <td>
+                        <span class="status-badge ${client.active ? 'status-active' : 'status-blocked'}">
+                            ${client.active ? 'Liberado' : 'Bloqueado/Vencido'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="toggleStatus('${client.client_id}', ${client.active})" class="action-btn ${client.active ? 'btn-block' : 'btn-unblock'}">
+                                <i class="fas ${client.active ? 'fa-lock' : 'fa-unlock'}"></i> ${client.active ? 'Bloquear' : 'Liberar'}
+                            </button>
+                            <button onclick="deleteClient('${client.client_id}')" class="action-btn btn-delete" title="Excluir Cliente Permanentemente">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 3. REGISTRAR NOVO CLIENTE ---
+        async function registerClient(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+            
+            const data = {
+                client_id: document.getElementById('client_id').value.trim().toLowerCase(),
+                name: document.getElementById('name').value.trim(),
+                model: document.getElementById('model').value,
+                value: Number(document.getElementById('value').value),
+                dueDate: document.getElementById('dueDate').value
+            };
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await res.json();
+            if (result.ok) {
+                document.getElementById('registerForm').reset();
+                loadClients();
+            } else {
+                alert(result.error || 'Erro ao registrar cliente. O ID já existe?');
+            }
+            btn.innerHTML = '<i class="fas fa-save"></i> Registar Bar';
+        }
+
+        // --- 4. ALTERAR STATUS (BLOQUEAR/DESBLOQUEAR) ---
+        async function toggleStatus(clientId, currentStatus) {
+            await fetch('/api/toggle-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ client_id: clientId, active: !currentStatus })
+            });
+            loadClients();
+        }
+
+        // --- 5. EXCLUIR CLIENTE ---
+        async function deleteClient(clientId) {
+            if (confirm(`⚠️ ATENÇÃO: Tem a certeza absoluta que deseja EXCLUIR o sistema "${clientId}"?\nIsso apagará o bar do seu banco de dados permanentemente.`)) {
+                try {
+                    await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
+                    loadClients();
+                } catch (error) {
+                    alert("Erro ao excluir o cliente.");
+                }
+            }
+        }
     </script>
 </body>
 </html>
