@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors'; // <-- CORS IMPORTADO AQUI
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -11,6 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// <-- CORS ATIVADO AQUI PARA LIBERAR O ACESSO DO PIX
+app.use(cors()); 
+
 app.use(express.json());
 app.use(express.static('public'));
 
