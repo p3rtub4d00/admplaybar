@@ -168,17 +168,20 @@
 
         .client-info h3 { font-size: 1.1rem; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
         .client-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+        
         .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.offline { background: var(--text-muted); }
         
         .client-finance { text-align: center; font-size: 0.9rem; }
         .client-finance span { display: block; font-weight: 600; font-size: 1.1rem; color: var(--text-main); }
         .client-finance small { color: var(--text-muted); font-size: 0.8rem; }
         
         .date-danger { color: var(--danger) !important; font-weight: 600; }
+        .date-success { color: var(--success) !important; font-weight: 600; }
 
         .badge {
-            padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; text-align: center; width: 100px;
         }
         .badge.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
         .badge.success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
@@ -200,13 +203,12 @@
         .btn-action:hover.a-trust { background: var(--warning); color: white; border-color: var(--warning); }
         .btn-action:hover.a-qr { background: var(--primary); color: white; border-color: var(--primary); }
         .btn-action:hover.a-wa { background: #25D366; color: white; border-color: #25D366; }
-        .btn-action:hover.a-edit { background: var(--primary-hover); color: white; border-color: var(--primary-hover); }
         .btn-action:hover.a-del { background: var(--danger); color: white; border-color: var(--danger); }
 
         @media (max-width: 1024px) {
             .main-grid { grid-template-columns: 1fr; }
             .client-card { flex-direction: column; align-items: flex-start; gap: 16px; }
-            .action-bar { width: 100%; justify-content: space-between; }
+            .action-bar { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
         }
     </style>
 </head>
@@ -216,21 +218,21 @@
         <div class="brand">
             <i class="fa-solid fa-tower-broadcast"></i> Central PlayBar | QG
         </div>
-        <button class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
+        <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
     </header>
 
     <div class="kpi-grid">
         <div class="kpi-card blue">
             <div class="kpi-title">Clientes Ativos</div>
-            <div class="kpi-value">0</div>
+            <div class="kpi-value" id="kpi-ativos">0</div>
         </div>
         <div class="kpi-card green">
-            <div class="kpi-title">Faturamento Fixo (Previsto)</div>
-            <div class="kpi-value">R$ 2,00</div>
+            <div class="kpi-title">Faturamento Fixo (Mensal)</div>
+            <div class="kpi-value" id="kpi-faturamento">R$ 0,00</div>
         </div>
         <div class="kpi-card orange">
-            <div class="kpi-title">Comissão Variável (Hoje)</div>
-            <div class="kpi-value">R$ 0,00</div>
+            <div class="kpi-title">Receita Hoje (Bares)</div>
+            <div class="kpi-value" id="kpi-diario">R$ 0,00</div>
         </div>
     </div>
 
@@ -244,76 +246,192 @@
             <form id="newClientForm">
                 <div class="form-group">
                     <label class="form-label">ID Único do Bar</label>
-                    <input type="text" class="form-control" placeholder="Ex: bar_123">
+                    <input type="text" id="cli_id" class="form-control" placeholder="Ex: bar_123" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Nome do Estabelecimento</label>
-                    <input type="text" class="form-control" placeholder="Ex: Boteco do João">
+                    <input type="text" id="cli_name" class="form-control" placeholder="Ex: Boteco do João" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">WhatsApp (Com DDD)</label>
-                    <input type="text" class="form-control" placeholder="Ex: 69999999999">
+                    <input type="text" id="cli_phone" class="form-control" placeholder="Ex: 69999999999">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Modelo de Contrato</label>
-                    <select class="form-control">
-                        <option>Aluguel Mensal (Fixo)</option>
-                        <option>Porcentagem (%)</option>
-                    </select>
+                    <label class="form-label">Vencimento (Data)</label>
+                    <input type="date" id="cli_date" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Valor (R$)</label>
-                    <input type="number" class="form-control" placeholder="Ex: 99.90">
+                    <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="Ex: 99.90" required>
                 </div>
-                <button type="button" class="btn-submit">Cadastrar Bar</button>
+                <button type="submit" class="btn-submit">Cadastrar Bar</button>
             </form>
         </aside>
 
         <!-- MAIN - LISTA DE BARES -->
         <main class="panel">
-            <div class="panel-header">
-                <i class="fa-solid fa-network-wired"></i> Bares Conectados
+            <div class="panel-header" style="display: flex; justify-content: space-between;">
+                <span><i class="fa-solid fa-network-wired"></i> Bares Conectados</span>
+                <button onclick="loadClients()" style="background: transparent; border: none; color: var(--primary); cursor: pointer; font-size: 1.2rem;"><i class="fa-solid fa-rotate-right"></i></button>
             </div>
             
-            <div class="client-list">
-                
-                <!-- EXEMPLO DE ITEM (Baseado no seu print) -->
-                <div class="client-card blocked">
-                    <div class="client-info">
-                        <h3>playbar</h3>
-                        <div class="client-meta">
-                            <span class="status-dot online"></span> Online | ID: playbarteste
-                        </div>
-                    </div>
-                    
-                    <div class="client-finance">
-                        <small>Mensalidade</small>
-                        <span>R$ 2,00</span>
-                    </div>
-
-                    <div class="client-finance">
-                        <small>Vencimento</small>
-                        <span class="date-danger">23/07/2026</span>
-                    </div>
-
-                    <div>
-                        <span class="badge danger">Bloqueado</span>
-                    </div>
-
-                    <div class="action-bar">
-                        <button class="btn-action a-unlock" title="Desbloquear Manual"><i class="fa-solid fa-lock-open"></i></button>
-                        <button class="btn-action a-trust" title="Desbloqueio de Confiança"><i class="fa-solid fa-handshake"></i></button>
-                        <button class="btn-action a-qr" title="Gerar PIX"><i class="fa-solid fa-qrcode"></i></button>
-                        <button class="btn-action a-wa" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
-                        <button class="btn-action a-edit" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button class="btn-action a-del" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-                <!-- FIM DO ITEM -->
-
+            <div class="client-list" id="clientListContainer">
+                <p style="color: var(--text-muted); text-align: center; padding: 20px;">Carregando bares...</p>
             </div>
         </main>
     </div>
 
+    <script>
+        // Função para formatar data BR
+        function formatDateBR(dateString) {
+            if (!dateString) return '--/--/----';
+            const [y, m, d] = dateString.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        // Função para carregar os clientes da API
+        async function loadClients() {
+            try {
+                const res = await fetch('/api/clients');
+                const clients = await res.json();
+                
+                const container = document.getElementById('clientListContainer');
+                container.innerHTML = '';
+                
+                let kpiAtivos = 0;
+                let kpiFaturamento = 0;
+                let kpiDiario = 0;
+
+                if (clients.length === 0) {
+                    container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">Nenhum bar cadastrado ainda.</p>`;
+                }
+
+                clients.forEach(client => {
+                    const isBlocked = !client.active;
+                    
+                    // Atualiza KPIs
+                    if (!isBlocked) kpiAtivos++;
+                    kpiFaturamento += (client.value || 0);
+                    kpiDiario += (client.dailyRevenue || 0);
+
+                    // Verifica se está online (visto nos últimos 5 min)
+                    const lastSeenTime = new Date(client.lastSeen).getTime();
+                    const isOnline = (Date.now() - lastSeenTime) < 5 * 60 * 1000;
+                    
+                    const card = document.createElement('div');
+                    card.className = `client-card ${isBlocked ? 'blocked' : ''}`;
+                    
+                    card.innerHTML = `
+                        <div class="client-info">
+                            <h3>${client.name || client.client_id}</h3>
+                            <div class="client-meta">
+                                <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span> 
+                                ${isOnline ? 'Online' : 'Offline'} | ID: ${client.client_id}
+                            </div>
+                        </div>
+                        
+                        <div class="client-finance">
+                            <small>Mensalidade</small>
+                            <span>R$ ${(client.value || 0).toFixed(2).replace('.', ',')}</span>
+                        </div>
+
+                        <div class="client-finance">
+                            <small>Vencimento</small>
+                            <span class="${isBlocked ? 'date-danger' : 'date-success'}">${formatDateBR(client.dueDate)}</span>
+                        </div>
+
+                        <div>
+                            <span class="badge ${isBlocked ? 'danger' : 'success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
+                        </div>
+
+                        <div class="action-bar">
+                            <button class="btn-action a-unlock" onclick="toggleStatus('${client.client_id}', ${isBlocked})" title="${isBlocked ? 'Desbloquear Manual' : 'Bloquear'}">
+                                <i class="fa-solid ${isBlocked ? 'fa-lock-open' : 'fa-lock'}"></i>
+                            </button>
+                            ${isBlocked ? `<button class="btn-action a-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio de Confiança (24h)"><i class="fa-solid fa-handshake"></i></button>` : ''}
+                            <a href="https://wa.me/55${client.phone}" target="_blank" class="btn-action a-wa" style="text-decoration: none;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                            <button class="btn-action a-del" onclick="deleteClient('${client.client_id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                // Renderiza KPIs
+                document.getElementById('kpi-ativos').innerText = kpiAtivos;
+                document.getElementById('kpi-faturamento').innerText = `R$ ${kpiFaturamento.toFixed(2).replace('.', ',')}`;
+                document.getElementById('kpi-diario').innerText = `R$ ${kpiDiario.toFixed(2).replace('.', ',')}`;
+
+            } catch (error) {
+                console.error("Erro ao carregar clientes:", error);
+            }
+        }
+
+        // Cadastrar Novo Cliente
+        document.getElementById('newClientForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                client_id: document.getElementById('cli_id').value,
+                name: document.getElementById('cli_name').value,
+                phone: document.getElementById('cli_phone').value,
+                dueDate: document.getElementById('cli_date').value,
+                value: document.getElementById('cli_value').value,
+                active: true
+            };
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                document.getElementById('newClientForm').reset();
+                loadClients();
+            } else {
+                alert('Erro ao cadastrar. O ID já pode estar em uso.');
+            }
+        });
+
+        // Alternar Status (Bloquear / Desbloquear)
+        async function toggleStatus(client_id, makeActive) {
+            if(confirm(`Tem certeza que deseja ${makeActive ? 'DESBLOQUEAR' : 'BLOQUEAR'} este bar?`)) {
+                await fetch('/api/toggle-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id, active: makeActive })
+                });
+                loadClients();
+            }
+        }
+
+        // Desbloqueio de Confiança (24h)
+        async function trustUnlock(client_id) {
+            if(confirm('Isso vai liberar o sinal do bar provisoriamente por 24 horas. Confirmar?')) {
+                await fetch('/api/trust-unlock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id, hours: 24 })
+                });
+                loadClients();
+            }
+        }
+
+        // Excluir Cliente
+        async function deleteClient(client_id) {
+            if(confirm('Tem certeza absoluta? Isso removerá o bar do sistema.')) {
+                await fetch(`/api/clients/${client_id}`, { method: 'DELETE' });
+                loadClients();
+            }
+        }
+
+        // Logout
+        function logout() {
+            // Se tiver lógica de sessão, limpe aqui. Para este modelo:
+            window.location.reload(); 
+        }
+
+        // Inicia carregando os clientes
+        window.onload = loadClients;
+    </script>
 </body>
 </html>
