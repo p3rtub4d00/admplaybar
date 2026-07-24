@@ -26,6 +26,7 @@
         label { display: block; margin-bottom: 5px; color: #94a3b8; font-size: 0.9rem; }
         input, select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background-color: #0f172a; color: white; outline: none; }
         input:focus, select:focus { border-color: #3b82f6; }
+        input:disabled { background-color: #1e293b; color: #64748b; cursor: not-allowed; }
         
         .btn { width: 100%; padding: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; }
         .btn-primary { background-color: #3b82f6; color: white; }
@@ -38,7 +39,7 @@
         .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
         .status-active { background-color: rgba(16, 185, 129, 0.2); color: #10b981; }
         .status-blocked { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
-        .status-trust { background-color: rgba(249, 115, 22, 0.2); color: #f97316; } /* Laranja para Confiança */
+        .status-trust { background-color: rgba(249, 115, 22, 0.2); color: #f97316; }
         
         .action-btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 0.9rem; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
         .btn-block { background-color: #ef4444; } .btn-unblock { background-color: #10b981; }
@@ -74,7 +75,7 @@
             <div class="form-group"><label>WhatsApp</label><input type="text" id="edit_phone"></div>
             <div class="form-group">
                 <label>Modelo</label>
-                <select id="edit_model">
+                <select id="edit_model" onchange="toggleFormDate('edit_model', 'edit_dueDate')">
                     <option value="Aluguel Mensal (Fixo)">Aluguel Mensal (Fixo)</option>
                     <option value="Percentagem (Variável)">Percentagem (Variável)</option>
                 </select>
@@ -118,7 +119,7 @@
                 <div class="form-group"><label>WhatsApp (Com DDD)</label><input type="text" id="phone" placeholder="Ex: 69999999999"></div>
                 <div class="form-group">
                     <label>Modelo</label>
-                    <select id="model">
+                    <select id="model" onchange="toggleFormDate('model', 'dueDate')">
                         <option value="Aluguel Mensal (Fixo)">Aluguel Mensal (Fixo)</option>
                         <option value="Percentagem (Variável)">Percentagem (Variável)</option>
                     </select>
@@ -161,7 +162,21 @@
             }
         };
 
-        // Permite logar com a tecla Enter
+        // Função para Ligar/Desligar a Data dependendo do Modelo
+        function toggleFormDate(selectId, dateInputId) {
+            const select = document.getElementById(selectId);
+            const dateInput = document.getElementById(dateInputId);
+            
+            if (select.value.includes('Fixo')) {
+                dateInput.disabled = false;
+                dateInput.required = true;
+            } else {
+                dateInput.disabled = true;
+                dateInput.required = false;
+                dateInput.value = ''; // Limpa a data
+            }
+        }
+
         document.getElementById('masterPassword').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') login();
         });
@@ -194,14 +209,13 @@
             
             let totalActive = 0, totalFixed = 0, totalVar = 0;
             const now = new Date();
+            const today = new Date();
+            today.setHours(0,0,0,0);
 
             clients.forEach(client => {
-                
-                // Verifica Desbloqueio de Confiança
                 const hasTrustUnlock = client.trustUnlockUntil && new Date(client.trustUnlockUntil) > now;
                 const isEffectiveActive = client.active || hasTrustUnlock;
 
-                // Dashboard Info
                 if (isEffectiveActive) totalActive++;
                 if (client.model.includes('Fixo')) {
                     totalFixed += client.value;
@@ -209,28 +223,38 @@
                     totalVar += (client.dailyRevenue || 0) * (client.value / 100);
                 }
 
-                // Cálculo de Vencimento
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const [y, m, d] = client.dueDate.split('-');
-                const dueDate = new Date(y, m - 1, d);
-                const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-
+                // Lógica Inteligente da Data (Ignora se for vazio/percentagem)
                 let rowStyle = '';
                 let dateColor = '#e2e8f0';
-                
-                if (diffDays < 0 && !isEffectiveActive) {
-                    rowStyle = 'background-color: rgba(239, 68, 68, 0.15);'; // Vencido/Bloqueado
-                    dateColor = '#ef4444';
-                } else if (hasTrustUnlock) {
-                    rowStyle = 'background-color: rgba(249, 115, 22, 0.10);'; // Confiança
-                    dateColor = '#f97316';
-                } else if (diffDays <= 3) {
-                    rowStyle = 'background-color: rgba(234, 179, 8, 0.15);'; // Perto de vencer
-                    dateColor = '#eab308';
+                let dateStr = 'Uso Contínuo (%)';
+
+                if (client.dueDate && client.dueDate.trim() !== '') {
+                    const [y, m, d] = client.dueDate.split('-');
+                    const dueDate = new Date(y, m - 1, d);
+                    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+                    if (diffDays < 0 && !isEffectiveActive) {
+                        rowStyle = 'background-color: rgba(239, 68, 68, 0.15);'; 
+                        dateColor = '#ef4444';
+                    } else if (hasTrustUnlock) {
+                        rowStyle = 'background-color: rgba(249, 115, 22, 0.10);'; 
+                        dateColor = '#f97316';
+                    } else if (diffDays <= 3) {
+                        rowStyle = 'background-color: rgba(234, 179, 8, 0.15);'; 
+                        dateColor = '#eab308';
+                    }
+                    dateStr = `${d}/${m}/${y}`;
+                } else {
+                    // Se não tiver data (Percentagem), só fica vermelho se você bloquear no cadeado
+                    if (!isEffectiveActive) {
+                        rowStyle = 'background-color: rgba(239, 68, 68, 0.15);';
+                        dateColor = '#ef4444';
+                    } else if (hasTrustUnlock) {
+                        rowStyle = 'background-color: rgba(249, 115, 22, 0.10);'; 
+                        dateColor = '#f97316';
+                    }
                 }
 
-                const dateStr = `${d}/${m}/${y}`;
                 const isOnline = client.lastSeen && (new Date() - new Date(client.lastSeen)) < 15 * 60 * 1000;
                 const dotColor = isOnline ? '#10b981' : '#64748b';
                 const statusText = isOnline ? 'Online' : 'Offline';
@@ -239,7 +263,6 @@
                     ? `<span style="color:#94a3b8;">Mensalidade:</span> <b style="font-size:1.1rem;">R$ ${client.value}</b>` 
                     : `<span style="color:#94a3b8;">(${client.value}%) Hoje:</span> R$ ${client.dailyRevenue || 0}<br><span style="color:#10b981; font-weight:bold;">Sua parte: R$ ${((client.dailyRevenue || 0) * (client.value / 100)).toFixed(2)}</span>`;
 
-                // Badge de Status e Botões de Ação Dinâmicos
                 let badgeClass = 'status-blocked';
                 let badgeText = 'Bloqueado';
                 if (client.active) {
@@ -248,14 +271,12 @@
                     badgeClass = 'status-trust'; badgeText = 'Confiança 24h';
                 }
 
-                // Montagem dos botões
                 let actionsHtml = `
-                    <button onclick="toggleStatus('${client.client_id}', ${client.active})" class="action-btn ${client.active ? 'btn-block' : 'btn-unblock'}" title="${client.active ? 'Bloquear Definitivo' : 'Confirmar Pagamento'}">
+                    <button onclick="toggleStatus('${client.client_id}', ${client.active})" class="action-btn ${client.active ? 'btn-block' : 'btn-unblock'}" title="${client.active ? 'Bloquear Definitivo' : 'Confirmar Pagamento / Desbloquear'}">
                         <i class="fas ${client.active ? 'fa-lock' : 'fa-unlock'}"></i>
                     </button>
                 `;
 
-                // Botão "Aperto de Mão" (Confiança) - Só aparece se estiver bloqueado
                 if (!client.active) {
                     actionsHtml += `
                     <button onclick="trustUnlock('${client.client_id}')" class="action-btn btn-trust" title="Liberar Confiança (24h)">
@@ -265,7 +286,7 @@
 
                 actionsHtml += `
                     <button onclick="sendWhatsApp('${client.name}', '${client.phone}', '${dateStr}')" class="action-btn btn-wpp" title="Cobrar no WhatsApp"><i class="fab fa-whatsapp"></i></button>
-                    <button onclick="openEdit('${client.client_id}', '${client.name}', '${client.phone || ''}', '${client.model}', ${client.value}, '${client.dueDate}')" class="action-btn btn-edit" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button onclick="openEdit('${client.client_id}', '${client.name}', '${client.phone || ''}', '${client.model}', ${client.value}, '${client.dueDate || ''}')" class="action-btn btn-edit" title="Editar"><i class="fas fa-edit"></i></button>
                     <button onclick="deleteClient('${client.client_id}')" class="action-btn btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>
                 `;
 
@@ -277,7 +298,7 @@
                         <span style="font-size: 0.8rem; color: #94a3b8;"><span class="dot" style="background-color: ${dotColor};"></span>${statusText} | ID: ${client.client_id}</span>
                     </td>
                     <td>${financeText}</td>
-                    <td><b style="color:${dateColor};">${dateStr}</b></td>
+                    <td><b style="color:${dateColor}; font-size: 0.95rem;">${dateStr}</b></td>
                     <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
                     <td><div style="display: flex; gap: 5px;">${actionsHtml}</div></td>
                 `;
@@ -289,7 +310,6 @@
             document.getElementById('dash-var').innerText = `R$ ${totalVar.toFixed(2)}`;
         }
 
-        // FUNÇÕES DO BANCO E API
         async function registerClient(e) {
             e.preventDefault();
             const data = {
@@ -298,10 +318,11 @@
                 phone: document.getElementById('phone').value.trim(),
                 model: document.getElementById('model').value,
                 value: Number(document.getElementById('value').value),
-                dueDate: document.getElementById('dueDate').value
+                dueDate: document.getElementById('dueDate').value // Se for percentagem, manda vazio e o servidor aceita normal
             };
             await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
             document.getElementById('registerForm').reset();
+            toggleFormDate('model', 'dueDate'); // Reseta a trava da data no visual
             loadClients();
         }
 
@@ -310,7 +331,6 @@
             loadClients();
         }
 
-        // FUNÇÃO: DESBLOQUEIO DE CONFIANÇA
         async function trustUnlock(clientId) {
             if (confirm(`Liberar o sistema "${clientId}" temporariamente por 24 horas?`)) {
                 await fetch('/api/trust-unlock', { 
@@ -331,7 +351,8 @@
 
         function sendWhatsApp(name, phone, dueDate) {
             if (!phone || phone === 'undefined') { alert("Nenhum telefone cadastrado para este bar."); return; }
-            const msg = `Olá, *${name}*! Tudo bem? 🎵\n\nPassando para informar que a fatura do sistema *PlayBar* (Vencimento: ${dueDate}) já está disponível.\n\nPara evitar a suspensão da tela, segue nossa chave PIX:\n*Chave PIX:* ${MINHA_CHAVE_PIX}\n\nQualquer dúvida, estamos à disposição!`;
+            const txtData = dueDate.includes('Contínuo') ? 'Referente à porcentagem de uso' : `Vencimento: ${dueDate}`;
+            const msg = `Olá, *${name}*! Tudo bem? 🎵\n\nPassando para informar que a fatura do sistema *PlayBar* (${txtData}) já está disponível.\n\nPara evitar a suspensão da tela, segue nossa chave PIX:\n*Chave PIX:* ${MINHA_CHAVE_PIX}\n\nQualquer dúvida, estamos à disposição!`;
             const url = `https://api.whatsapp.com/send?phone=55${phone}&text=${encodeURIComponent(msg)}`;
             window.open(url, '_blank');
         }
@@ -340,9 +361,16 @@
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_name').value = name;
             document.getElementById('edit_phone').value = phone !== 'undefined' ? phone : '';
-            document.getElementById('edit_model').value = model;
+            
+            const editModelSelect = document.getElementById('edit_model');
+            editModelSelect.value = model;
+            
             document.getElementById('edit_value').value = value;
             document.getElementById('edit_dueDate').value = dueDate;
+            
+            // Ativa ou desativa o campo de data na hora de abrir a edição
+            toggleFormDate('edit_model', 'edit_dueDate');
+            
             document.getElementById('editOverlay').style.display = 'flex';
         }
 
