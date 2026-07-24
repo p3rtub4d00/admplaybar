@@ -13,14 +13,13 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// Conexão MongoDB Mestre
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => console.log('[PlayBar Master] Conectado ao MongoDB Mestre...'))
   .catch(err => console.error('Erro ao conectar ao MongoDB Mestre:', err));
 
-// Schema do Cliente (Atualizado com lastSeen e phone)
+// Schema do Cliente (Adicionado campo trustUnlockUntil)
 const clientSchema = new mongoose.Schema({
     client_id: { type: String, required: true, unique: true },
     name: String,
@@ -30,7 +29,8 @@ const clientSchema = new mongoose.Schema({
     dueDate: String,
     active: { type: Boolean, default: true },
     dailyRevenue: { type: Number, default: 0 },
-    lastSeen: { type: Date, default: Date.now }
+    lastSeen: { type: Date, default: Date.now },
+    trustUnlockUntil: { type: Date, default: null } // NOVO CAMPO: Confiança
 });
 
 const Client = mongoose.model('Client', clientSchema);
@@ -65,7 +65,6 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Rota de Edição (NOVA)
 app.put('/api/clients/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -76,10 +75,14 @@ app.put('/api/clients/:id', async (req, res) => {
     }
 });
 
+// ALTERADO: Ao liberar de vez (pagamento), limpa o prazo de confiança
 app.post('/api/toggle-status', async (req, res) => {
     try {
         const { client_id, active } = req.body;
-        await Client.findOneAndUpdate({ client_id }, { active });
+        const updateData = { active };
+        if (active) updateData.trustUnlockUntil = null; // Zera a confiança ao pagar
+        
+        await Client.findOneAndUpdate({ client_id }, updateData);
         res.json({ ok: true });
     } catch (error) {
         res.status(500).json({ ok: false });
@@ -96,21 +99,53 @@ app.delete('/api/clients/:id', async (req, res) => {
     }
 });
 
+// NOVA ROTA: Desbloqueio de Confiança
+app.post('/api/trust-unlock', async (req, res) => {
+    try {
+        const { client_id, hours } = req.body;
+        const unlockTime = new Date();
+        unlockTime.setHours(unlockTime.getHours() + (hours || 24)); // Soma 24 horas
+        
+        await Client.findOneAndUpdate(
+            { client_id }, 
+            { trustUnlockUntil: unlockTime }
+        );
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(500).json({ ok: false });
+    }
+});
+
 // ==========================================
-// ROTAS DO BAR (Com atualização de Status Online)
+// ROTAS DO BAR
 // ==========================================
 
+// ALTERADO: Verifica se está ativo OU se o desbloqueio de confiança ainda não venceu
 app.get('/api/check-license', async (req, res) => {
     try {
         const { client_id } = req.query;
-        // Atualiza a última vez que o bar se comunicou com o servidor
         const client = await Client.findOneAndUpdate(
             { client_id }, 
             { lastSeen: new Date() }, 
             { new: true }
         );
-        if (client) res.json({ ok: true, active: client.active });
-        else res.json({ ok: false, error: 'Cliente não encontrado' });
+        
+        if (client) {
+            let isActive = client.active;
+            
+            // Lógica do Desbloqueio Temporário
+            if (!isActive && client.trustUnlockUntil) {
+                const now = new Date();
+                const expireDate = new Date(client.trustUnlockUntil);
+                if (now < expireDate) {
+                    isActive = true; // Libera pois ainda está no prazo extra
+                }
+            }
+            
+            res.json({ ok: true, active: isActive });
+        } else {
+            res.json({ ok: false, error: 'Cliente não encontrado' });
+        }
     } catch (error) {
         res.status(500).json({ ok: false });
     }
@@ -119,10 +154,7 @@ app.get('/api/check-license', async (req, res) => {
 app.post('/api/report-revenue', async (req, res) => {
     try {
         const { client_id, dailyRevenue } = req.body;
-        await Client.findOneAndUpdate(
-            { client_id }, 
-            { dailyRevenue, lastSeen: new Date() }
-        );
+        await Client.findOneAndUpdate({ client_id }, { dailyRevenue, lastSeen: new Date() });
         res.json({ ok: true });
     } catch (error) {
         res.status(500).json({ ok: false });
