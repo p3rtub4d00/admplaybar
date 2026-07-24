@@ -5,396 +5,346 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Central PlayBar | QG Mestre</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --bg-dark: #020617;
-            --bg-panel: #0f172a;
-            --bg-card: #1e293b;
-            --border: #334155;
+            --bg-body: #0f172a;
+            --bg-surface: #1e293b;
+            --border-color: #334155;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             
-            --primary: #0ea5e9;
-            --primary-hover: #0284c7;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --gray: #64748b;
         }
 
-        * {
-            margin: 0; padding: 0; box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
         body {
-            background-color: var(--bg-dark);
+            background-color: var(--bg-body);
             color: var(--text-main);
             min-height: 100vh;
-            padding: 24px;
+            padding: 20px 30px;
         }
 
         /* HEADER */
         .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 32px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color);
         }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 1.8rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #38bdf8, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .brand i { -webkit-text-fill-color: #38bdf8; }
-
+        .brand { font-size: 1.6rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+        .brand i { color: var(--primary); }
         .btn-logout {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            padding: 8px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex; gap: 8px; align-items: center;
+            background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--danger);
+            padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s;
         }
-
-        .btn-logout:hover {
-            background: var(--danger);
-            color: white;
-        }
+        .btn-logout:hover { background: var(--danger); color: white; }
 
         /* KPIs */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 32px;
+        .kpi-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;
         }
-
         .kpi-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;
+            padding: 20px; display: flex; flex-direction: column; gap: 8px;
         }
+        .kpi-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .kpi-value { font-size: 2rem; font-weight: 700; color: var(--text-main); }
+        
+        .kpi-card:nth-child(1) .kpi-value { color: var(--primary); }
+        .kpi-card:nth-child(2) .kpi-value { color: var(--success); }
+        .kpi-card:nth-child(3) .kpi-value { color: var(--warning); }
 
-        .kpi-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+        /* LAYOUT PRINCIPAL */
+        .layout-grid {
+            display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;
         }
-        .kpi-card.blue::before { background: var(--primary); }
-        .kpi-card.green::before { background: var(--success); }
-        .kpi-card.orange::before { background: var(--warning); }
-
-        .kpi-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
-        .kpi-value { font-size: 2.5rem; font-weight: 700; }
-
-        /* MAIN LAYOUT */
-        .main-grid {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 24px;
-        }
-
         .panel {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
+            background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;
         }
-
-        .panel-header {
-            font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 10px;
-        }
+        .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
         /* FORMULÁRIO */
-        .form-group { margin-bottom: 16px; }
-        .form-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
-        
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
         .form-control {
-            width: 100%;
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 12px 14px;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border 0.3s;
+            width: 100%; background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main);
+            padding: 10px 12px; border-radius: 6px; font-size: 0.95rem; outline: none;
         }
-        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2); }
+        .form-control:focus { border-color: var(--primary); }
+        .form-control:disabled { opacity: 0.6; cursor: not-allowed; }
         
         .btn-submit {
-            width: 100%; background: var(--primary); color: white; border: none;
-            padding: 14px; border-radius: 10px; font-weight: 600; cursor: pointer;
-            transition: background 0.3s; margin-top: 10px;
+            width: 100%; background: var(--primary); color: white; border: none; padding: 12px;
+            border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 10px;
         }
         .btn-submit:hover { background: var(--primary-hover); }
-
-        /* LISTA DE BARES */
-        .client-list { display: flex; flex-direction: column; gap: 12px; }
-        
-        .client-card {
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: border 0.3s;
+        .btn-cancel {
+            width: 100%; background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px;
+            border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 8px; display: none;
         }
-        
-        .client-card:hover { border-color: #475569; }
-        
-        /* Estilo sutil para linha bloqueada */
-        .client-card.blocked { border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.03); }
 
-        .client-info h3 { font-size: 1.1rem; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
-        .client-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+        /* TABELA PROFISSIONAL */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+        th { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; background: rgba(0,0,0,0.2); }
+        tr:hover { background: rgba(255,255,255,0.02); }
         
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
-        .status-dot.offline { background: var(--text-muted); }
+        .td-bar-name { font-weight: 600; font-size: 1.05rem; display: flex; flex-direction: column; gap: 4px; }
+        .td-bar-id { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
         
-        .client-finance { text-align: center; font-size: 0.9rem; }
-        .client-finance span { display: block; font-weight: 600; font-size: 1.1rem; color: var(--text-main); }
-        .client-finance small { color: var(--text-muted); font-size: 0.8rem; }
-        
-        .date-danger { color: var(--danger) !important; font-weight: 600; }
-        .date-success { color: var(--success) !important; font-weight: 600; }
-
-        .badge {
-            padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; text-align: center; width: 100px;
+        .status-badge {
+            padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
         }
-        .badge.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-        .badge.success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .bg-success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .bg-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
 
-        /* ACTION BAR ELEGANTE */
-        .action-bar { display: flex; gap: 8px; }
-        .btn-action {
-            width: 36px; height: 36px;
-            border-radius: 8px;
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        /* BOTOES DE AÇÃO DA TABELA */
+        .action-flex { display: flex; gap: 6px; }
+        .btn-sm {
+            width: 32px; height: 32px; border: none; border-radius: 4px; color: white;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
         }
+        .btn-sm:hover { filter: brightness(1.1); transform: translateY(-1px); }
         
-        .btn-action:hover.a-unlock { background: var(--success); color: white; border-color: var(--success); }
-        .btn-action:hover.a-trust { background: var(--warning); color: white; border-color: var(--warning); }
-        .btn-action:hover.a-qr { background: var(--primary); color: white; border-color: var(--primary); }
-        .btn-action:hover.a-wa { background: #25D366; color: white; border-color: #25D366; }
-        .btn-action:hover.a-del { background: var(--danger); color: white; border-color: var(--danger); }
+        .btn-wa { background-color: #25D366; }
+        .btn-edit { background-color: var(--primary); }
+        .btn-delete { background-color: var(--gray); }
+        .btn-lock { background-color: var(--danger); }
+        .btn-unlock { background-color: var(--success); }
+        .btn-trust { background-color: var(--warning); }
 
         @media (max-width: 1024px) {
-            .main-grid { grid-template-columns: 1fr; }
-            .client-card { flex-direction: column; align-items: flex-start; gap: 16px; }
-            .action-bar { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+            .layout-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
     <header class="topbar">
-        <div class="brand">
-            <i class="fa-solid fa-tower-broadcast"></i> Central PlayBar | QG
-        </div>
-        <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
+        <div class="brand"><i class="fa-solid fa-server"></i> Central PlayBar Mestre</div>
+        <button class="btn-logout" onclick="window.location.reload()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
     </header>
 
-    <div class="kpi-grid">
-        <div class="kpi-card blue">
-            <div class="kpi-title">Clientes Ativos</div>
-            <div class="kpi-value" id="kpi-ativos">0</div>
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <span class="kpi-title">Bares Ativos</span>
+            <span class="kpi-value" id="kpi-ativos">0</span>
         </div>
-        <div class="kpi-card green">
-            <div class="kpi-title">Faturamento Fixo (Mensal)</div>
-            <div class="kpi-value" id="kpi-faturamento">R$ 0,00</div>
+        <div class="kpi-card">
+            <span class="kpi-title">Faturamento Mensal Fixo</span>
+            <span class="kpi-value" id="kpi-faturamento">R$ 0,00</span>
         </div>
-        <div class="kpi-card orange">
-            <div class="kpi-title">Receita Hoje (Bares)</div>
-            <div class="kpi-value" id="kpi-diario">R$ 0,00</div>
+        <div class="kpi-card">
+            <span class="kpi-title">Receita Diária (Fichas)</span>
+            <span class="kpi-value" id="kpi-diario">R$ 0,00</span>
         </div>
     </div>
 
-    <div class="main-grid">
+    <div class="layout-grid">
         
-        <!-- SIDEBAR - CADASTRO -->
+        <!-- PAINEL LATERAL - FORMULÁRIO -->
         <aside class="panel">
-            <div class="panel-header">
-                <i class="fa-solid fa-store"></i> Novo Bar / Cliente
-            </div>
-            <form id="newClientForm">
+            <div class="panel-title" id="form-title">Cadastrar Novo Bar</div>
+            <form id="clientForm">
                 <div class="form-group">
-                    <label class="form-label">ID Único do Bar</label>
-                    <input type="text" id="cli_id" class="form-control" placeholder="Ex: bar_123" required>
+                    <label class="form-label">ID do Sistema</label>
+                    <input type="text" id="cli_id" class="form-control" placeholder="Ex: bar_centro" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Nome do Estabelecimento</label>
-                    <input type="text" id="cli_name" class="form-control" placeholder="Ex: Boteco do João" required>
+                    <label class="form-label">Nome Fantasia</label>
+                    <input type="text" id="cli_name" class="form-control" placeholder="Ex: Espetinho do Zé" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">WhatsApp (Com DDD)</label>
+                    <label class="form-label">WhatsApp (DDD + Número)</label>
                     <input type="text" id="cli_phone" class="form-control" placeholder="Ex: 69999999999">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Vencimento (Data)</label>
+                    <label class="form-label">Data de Vencimento</label>
                     <input type="date" id="cli_date" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Valor (R$)</label>
-                    <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="Ex: 99.90" required>
+                    <label class="form-label">Mensalidade (R$)</label>
+                    <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="0.00" required>
                 </div>
-                <button type="submit" class="btn-submit">Cadastrar Bar</button>
+                
+                <button type="submit" id="btn-submit-form" class="btn-submit">Salvar Cadastro</button>
+                <button type="button" id="btn-cancel-edit" class="btn-cancel" onclick="cancelEdit()">Cancelar Edição</button>
             </form>
         </aside>
 
-        <!-- MAIN - LISTA DE BARES -->
+        <!-- PAINEL PRINCIPAL - TABELA DE DADOS -->
         <main class="panel">
-            <div class="panel-header" style="display: flex; justify-content: space-between;">
-                <span><i class="fa-solid fa-network-wired"></i> Bares Conectados</span>
-                <button onclick="loadClients()" style="background: transparent; border: none; color: var(--primary); cursor: pointer; font-size: 1.2rem;"><i class="fa-solid fa-rotate-right"></i></button>
+            <div class="panel-title">
+                Bares Conectados
+                <button onclick="loadClients()" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:1.2rem;" title="Atualizar Dados">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
             </div>
             
-            <div class="client-list" id="clientListContainer">
-                <p style="color: var(--text-muted); text-align: center; padding: 20px;">Carregando bares...</p>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estabelecimento</th>
+                            <th>Mensalidade</th>
+                            <th>Vencimento</th>
+                            <th>Status</th>
+                            <th>Ações Administrativas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Carregando dados do servidor...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </main>
     </div>
 
     <script>
-        // Função para formatar data BR
+        let editMode = false;
+
         function formatDateBR(dateString) {
             if (!dateString) return '--/--/----';
             const [y, m, d] = dateString.split('-');
             return `${d}/${m}/${y}`;
         }
 
-        // Função para carregar os clientes da API
         async function loadClients() {
             try {
                 const res = await fetch('/api/clients');
                 const clients = await res.json();
                 
-                const container = document.getElementById('clientListContainer');
-                container.innerHTML = '';
+                const tbody = document.getElementById('table-body');
+                tbody.innerHTML = '';
                 
-                let kpiAtivos = 0;
-                let kpiFaturamento = 0;
-                let kpiDiario = 0;
+                let kpiAtivos = 0, kpiFaturamento = 0, kpiDiario = 0;
 
                 if (clients.length === 0) {
-                    container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">Nenhum bar cadastrado ainda.</p>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
+                    return;
                 }
 
                 clients.forEach(client => {
                     const isBlocked = !client.active;
                     
-                    // Atualiza KPIs
                     if (!isBlocked) kpiAtivos++;
                     kpiFaturamento += (client.value || 0);
                     kpiDiario += (client.dailyRevenue || 0);
 
-                    // Verifica se está online (visto nos últimos 5 min)
-                    const lastSeenTime = new Date(client.lastSeen).getTime();
-                    const isOnline = (Date.now() - lastSeenTime) < 5 * 60 * 1000;
-                    
-                    const card = document.createElement('div');
-                    card.className = `client-card ${isBlocked ? 'blocked' : ''}`;
-                    
-                    card.innerHTML = `
-                        <div class="client-info">
-                            <h3>${client.name || client.client_id}</h3>
-                            <div class="client-meta">
-                                <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span> 
-                                ${isOnline ? 'Online' : 'Offline'} | ID: ${client.client_id}
+                    // Criação dos botões baseados no status
+                    let toggleBtn = isBlocked 
+                        ? `<button class="btn-sm btn-unlock" onclick="toggleStatus('${client.client_id}', true)" title="Liberar Sinal"><i class="fa-solid fa-lock-open"></i></button>
+                           <button class="btn-sm btn-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio Confiança 24h"><i class="fa-solid fa-handshake"></i></button>` 
+                        : `<button class="btn-sm btn-lock" onclick="toggleStatus('${client.client_id}', false)" title="Bloquear Sinal"><i class="fa-solid fa-lock"></i></button>`;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <div class="td-bar-name">
+                                ${client.name || client.client_id}
+                                <span class="td-bar-id"><i class="fa-solid fa-fingerprint" style="font-size:0.7rem; color:var(--text-muted)"></i> ${client.client_id}</span>
                             </div>
-                        </div>
-                        
-                        <div class="client-finance">
-                            <small>Mensalidade</small>
-                            <span>R$ ${(client.value || 0).toFixed(2).replace('.', ',')}</span>
-                        </div>
-
-                        <div class="client-finance">
-                            <small>Vencimento</small>
-                            <span class="${isBlocked ? 'date-danger' : 'date-success'}">${formatDateBR(client.dueDate)}</span>
-                        </div>
-
-                        <div>
-                            <span class="badge ${isBlocked ? 'danger' : 'success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
-                        </div>
-
-                        <div class="action-bar">
-                            <button class="btn-action a-unlock" onclick="toggleStatus('${client.client_id}', ${isBlocked})" title="${isBlocked ? 'Desbloquear Manual' : 'Bloquear'}">
-                                <i class="fa-solid ${isBlocked ? 'fa-lock-open' : 'fa-lock'}"></i>
-                            </button>
-                            ${isBlocked ? `<button class="btn-action a-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio de Confiança (24h)"><i class="fa-solid fa-handshake"></i></button>` : ''}
-                            <a href="https://wa.me/55${client.phone}" target="_blank" class="btn-action a-wa" style="text-decoration: none;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-                            <button class="btn-action a-del" onclick="deleteClient('${client.client_id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                        </div>
+                        </td>
+                        <td style="font-weight: 600;">R$ ${(client.value || 0).toFixed(2).replace('.', ',')}</td>
+                        <td style="font-weight: 600; color: ${isBlocked ? 'var(--danger)' : 'var(--text-main)'}">${formatDateBR(client.dueDate)}</td>
+                        <td>
+                            <span class="status-badge ${isBlocked ? 'bg-danger' : 'bg-success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
+                        </td>
+                        <td>
+                            <div class="action-flex">
+                                ${toggleBtn}
+                                <a href="https://wa.me/55${client.phone}" target="_blank" class="btn-sm btn-wa" title="Chamar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                                <button class="btn-sm btn-edit" onclick="startEdit('${client.client_id}', '${client.name || ''}', '${client.phone || ''}', '${client.dueDate}', ${client.value})" title="Editar Dados"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn-sm btn-delete" onclick="deleteClient('${client.client_id}')" title="Excluir Bar"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
                     `;
-                    container.appendChild(card);
+                    tbody.appendChild(tr);
                 });
 
-                // Renderiza KPIs
+                // Atualiza Painéis Superiores
                 document.getElementById('kpi-ativos').innerText = kpiAtivos;
                 document.getElementById('kpi-faturamento').innerText = `R$ ${kpiFaturamento.toFixed(2).replace('.', ',')}`;
                 document.getElementById('kpi-diario').innerText = `R$ ${kpiDiario.toFixed(2).replace('.', ',')}`;
 
             } catch (error) {
-                console.error("Erro ao carregar clientes:", error);
+                console.error("Erro ao carregar lista:", error);
             }
         }
 
-        // Cadastrar Novo Cliente
-        document.getElementById('newClientForm').addEventListener('submit', async (e) => {
+        // ====== FUNÇÕES DE FORMULÁRIO (CRIAR E EDITAR) ======
+        document.getElementById('clientForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const clientId = document.getElementById('cli_id').value;
             const data = {
-                client_id: document.getElementById('cli_id').value,
+                client_id: clientId,
                 name: document.getElementById('cli_name').value,
                 phone: document.getElementById('cli_phone').value,
                 dueDate: document.getElementById('cli_date').value,
-                value: document.getElementById('cli_value').value,
-                active: true
+                value: document.getElementById('cli_value').value
             };
 
-            const res = await fetch('/api/register', {
-                method: 'POST',
+            const url = editMode ? `/api/clients/${clientId}` : '/api/register';
+            const method = editMode ? 'PUT' : 'POST';
+
+            if(!editMode) data.active = true; // Novo cliente sempre entra ativo
+
+            const res = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
 
             if (res.ok) {
-                document.getElementById('newClientForm').reset();
+                cancelEdit(); 
                 loadClients();
             } else {
-                alert('Erro ao cadastrar. O ID já pode estar em uso.');
+                alert('Erro ao processar requisição. Verifique se o ID já existe.');
             }
         });
 
-        // Alternar Status (Bloquear / Desbloquear)
-        async function toggleStatus(client_id, makeActive) {
-            if(confirm(`Tem certeza que deseja ${makeActive ? 'DESBLOQUEAR' : 'BLOQUEAR'} este bar?`)) {
+        // Função para preencher o form com dados do cliente ao clicar em Editar
+        window.startEdit = function(id, name, phone, date, value) {
+            editMode = true;
+            document.getElementById('form-title').innerText = "Editando Cadastro";
+            document.getElementById('btn-submit-form').innerText = "Salvar Alterações";
+            document.getElementById('btn-cancel-edit').style.display = "block";
+            
+            document.getElementById('cli_id').value = id;
+            document.getElementById('cli_id').disabled = true; // Impede alteração do ID chave
+            document.getElementById('cli_name').value = name !== 'undefined' ? name : '';
+            document.getElementById('cli_phone').value = phone !== 'undefined' ? phone : '';
+            document.getElementById('cli_date').value = date;
+            document.getElementById('cli_value').value = value;
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Função para cancelar edição e limpar formulário
+        window.cancelEdit = function() {
+            editMode = false;
+            document.getElementById('form-title').innerText = "Cadastrar Novo Bar";
+            document.getElementById('btn-submit-form').innerText = "Salvar Cadastro";
+            document.getElementById('btn-cancel-edit').style.display = "none";
+            
+            document.getElementById('clientForm').reset();
+            document.getElementById('cli_id').disabled = false;
+        }
+
+        // ====== FUNÇÕES ADMINISTRATIVAS ======
+        window.toggleStatus = async function(client_id, makeActive) {
+            if(confirm(`Deseja ${makeActive ? 'LIBERAR' : 'BLOQUEAR'} o sinal deste estabelecimento?`)) {
                 await fetch('/api/toggle-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -404,9 +354,8 @@
             }
         }
 
-        // Desbloqueio de Confiança (24h)
-        async function trustUnlock(client_id) {
-            if(confirm('Isso vai liberar o sinal do bar provisoriamente por 24 horas. Confirmar?')) {
+        window.trustUnlock = async function(client_id) {
+            if(confirm('Liberar o sistema provisoriamente por 24 horas?')) {
                 await fetch('/api/trust-unlock', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -416,21 +365,14 @@
             }
         }
 
-        // Excluir Cliente
-        async function deleteClient(client_id) {
-            if(confirm('Tem certeza absoluta? Isso removerá o bar do sistema.')) {
+        window.deleteClient = async function(client_id) {
+            if(confirm('Atenção: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este bar do banco de dados?')) {
                 await fetch(`/api/clients/${client_id}`, { method: 'DELETE' });
                 loadClients();
             }
         }
 
-        // Logout
-        function logout() {
-            // Se tiver lógica de sessão, limpe aqui. Para este modelo:
-            window.location.reload(); 
-        }
-
-        // Inicia carregando os clientes
+        // Inicializa sistema
         window.onload = loadClients;
     </script>
 </body>
