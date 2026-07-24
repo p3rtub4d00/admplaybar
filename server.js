@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors'; // <-- CORS IMPORTADO AQUI
+import cors from 'cors'; // <-- CORS importado
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// <-- CORS ATIVADO AQUI PARA LIBERAR O ACESSO DO PIX
+// <-- CORS ativado para não bloquear o painel do bar
 app.use(cors()); 
 
 app.use(express.json());
@@ -168,7 +168,9 @@ app.post('/api/create-pix', async (req, res) => {
                 email: `bar_${client_id}@playbar.com`,
                 first_name: client.name || 'Cliente PlayBar'
             },
-            external_reference: client_id
+            external_reference: client_id,
+            // <-- LINHA ADICIONADA: Aviso de pagamento para liberar o sistema automaticamente
+            notification_url: 'https://admplaybar.onrender.com/api/webhook/mercadopago' 
         };
 
         const response = await payment.create({ body });
