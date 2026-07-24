@@ -1,184 +1,134 @@
-import express from "express";
-import http from "http";
-import { Server } from "socket.io";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import express from 'express';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
-const scrypt = promisify(scryptCallback);
 
-// --- Conexão com o Banco de Dados do PlayBar (Mestre) ---
-console.log('[PlayBar Master] Conectando ao MongoDB Mestre...');
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ Conectado ao MongoDB do PlayBar com sucesso!'))
-  .catch((err) => console.error('❌ Erro ao conectar ao MongoDB Mestre:', err));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// --- Schemas do PlayBar Master ---
-
-// 1. Cadastro de Clientes (Bares/Estabelecimentos)
-const ClientSchema = new mongoose.Schema({
-  clientId: { type: String, unique: true, required: true }, // ex: "bar_do_ze"
-  clientName: { type: String, required: true },               // ex: "Bar do Zé"
-  model: { type: String, enum: ['aluguel', 'porcentagem'], default: 'aluguel' },
-  monthlyFee: { type: Number, default: 150.00 },             // Valor do aluguel mensal
-  percentageRate: { type: Number, default: 20 },             // % se for modelo por porcentagem
-  expiresAt: { type: Date, required: true },                 // Data de vencimento da mensalidade
-  isActive: { type: Boolean, default: true },                // True = Liberado, False = Bloqueado
-  lastRevenueReported: { type: Number, default: 0.0 },       // Último faturamento reportado pelo bar
-  createdAt: { type: Date, default: Date.now }
-});
-const ClientModel = mongoose.model('PlayBarClient', ClientSchema);
-
-// 2. Configurações do Admin do PlayBar (Você)
-const MasterConfigSchema = new mongoose.Schema({
-  key: { type: String, default: 'master_config', unique: true },
-  adminPasswordHash: String
-});
-const MasterConfigModel = mongoose.model('PlayBarMasterConfig', MasterConfigSchema);
-
-// --- Inicialização ---
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static('public'));
 
-const PORT = process.env.PORT || 3000;
+// Conexão MongoDB Mestre
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => console.log('[PlayBar Master] Conectado ao MongoDB Mestre...'))
+  .catch(err => console.error('Erro ao conectar ao MongoDB Mestre:', err));
 
-// Helpers de Senha Mestre
-async function hashPassword(password) {
-  const salt = randomBytes(16).toString('hex');
-  const derivedKey = await scrypt(password, salt, 64);
-  return `${salt}:${derivedKey.toString('hex')}`;
-}
-
-async function verifyPassword(password, storedHash) {
-  if (!storedHash) return password === (process.env.MASTER_PASS || 'adminplaybar');
-  const [salt, savedKey] = storedHash.split(':');
-  if (!salt || !savedKey) return false;
-  const derivedKey = await scrypt(password, salt, 64);
-  const savedKeyBuffer = Buffer.from(savedKey, 'hex');
-  return savedKeyBuffer.length === derivedKey.length && timingSafeEqual(savedKeyBuffer, derivedKey);
-}
-
-// --- ROTAS DA API (Para os sistemas dos clientes conversarem com o PlayBar) ---
-
-// 1. Rota que o sistema do bar consulta para saber se está liberado ou bloqueado
-app.get("/api/check-license", async (req, res) => {
-  try {
-    const { client_id } = req.query;
-    if (!client_id) return res.status(400).json({ ok: false, error: "client_id obrigatório" });
-
-    const client = await ClientModel.findOne({ clientId: client_id });
-    if (!client) {
-      return res.status(404).json({ ok: false, active: false, error: "Cliente não cadastrado no PlayBar." });
-    }
-
-    // Verifica se a data de vencimento passou
-    const now = new Date();
-    const isExpired = client.expiresAt < now;
-
-    if (isExpired && client.isActive) {
-      client.isActive = false; // Bloqueia automaticamente se venceu
-      await client.save();
-    }
-
-    res.json({
-      ok: true,
-      active: client.isActive && !isExpired,
-      clientName: client.clientName,
-      model: client.model,
-      expiresAt: client.expiresAt
-    });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "Erro interno ao validar licença." });
-  }
+// Schema do Cliente no Banco de Dados
+const clientSchema = new mongoose.Schema({
+    client_id: { type: String, required: true, unique: true },
+    name: String,
+    model: String, 
+    value: Number,
+    dueDate: String,
+    active: { type: Boolean, default: true },
+    dailyRevenue: { type: Number, default: 0 }
 });
 
-// 2. Rota para o bar enviar o relatório de faturamento (usado no modelo de %)
-app.post("/api/report-revenue", async (req, res) => {
-  try {
-    const { client_id, dailyRevenue } = req.body;
-    if (!client_id) return res.status(400).json({ ok: false, error: "client_id obrigatório" });
+const Client = mongoose.model('Client', clientSchema);
 
-    const client = await ClientModel.findOneAndUpdate(
-      { clientId: client_id },
-      { $set: { lastRevenueReported: Number(dailyRevenue) || 0 } },
-      { new: true }
-    );
+// ==========================================
+// ROTAS DO PAINEL MESTRE
+// ==========================================
 
-    if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado" });
-
-    res.json({ ok: true, message: "Faturamento atualizado com sucesso no PlayBar." });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "Erro ao atualizar faturamento." });
-  }
-});
-
-// --- ROTAS DO PAINEL ADMIN DO PLAYBAR (Gerenciamento de Clientes) ---
-
-app.get("/api/admin/clients", async (req, res) => {
-  try {
-    const clients = await ClientModel.find({}).sort({ createdAt: -1 }).lean();
+// 1. ROTA DE LOGIN (Validar senha mestra)
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    const masterPassword = process.env.MASTER_PASS || 'admin123';
     
-    // Calcula quanto você tem para receber de cada um baseado no modelo
-    const formatted = clients.map(c => {
-      let comissaoOuAluguel = 0;
-      if (c.model === 'aluguel') {
-        comissaoOuAluguel = c.monthlyFee;
-      } else {
-        comissaoOuAluguel = (c.lastRevenueReported * c.percentageRate) / 100;
-      }
-      return { ...c, valorCalculado: comissaoOuAluguel };
-    });
-
-    res.json({ ok: true, clients: formatted });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "Erro ao listar clientes" });
-  }
-});
-
-app.post("/api/admin/clients", async (req, res) => {
-  try {
-    const { clientId, clientName, model, monthlyFee, percentageRate, expiresAt } = req.body;
-    if (!clientId || !clientName || !expiresAt) {
-      return res.status(400).json({ ok: false, error: "Preencha os campos obrigatórios." });
+    if (password === masterPassword) {
+        res.json({ ok: true });
+    } else {
+        res.status(401).json({ ok: false });
     }
-
-    const newClient = await ClientModel.create({
-      clientId: clientId.toLowerCase().trim().replace(/\s+/g, '_'),
-      clientName,
-      model: model || 'aluguel',
-      monthlyFee: Number(monthlyFee) || 150,
-      percentageRate: Number(percentageRate) || 20,
-      expiresAt: new Date(expiresAt),
-      isActive: true
-    });
-
-    res.json({ ok: true, client: newClient });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "Erro ao cadastrar cliente (ID já pode existir)." });
-  }
 });
 
-// Bloquear ou Desbloquear Cliente manualmente
-app.post("/api/admin/clients/:id/toggle", async (req, res) => {
-  try {
-    const client = await ClientModel.findById(req.params.id);
-    if (!client) return res.status(404).json({ ok: false, error: "Cliente não encontrado" });
-
-    client.isActive = !client.isActive;
-    await client.save();
-
-    res.json({ ok: true, isActive: client.isActive });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: "Erro ao alterar status do cliente." });
-  }
+// 2. ROTA: Listar todos os clientes
+app.get('/api/clients', async (req, res) => {
+    try {
+        const clients = await Client.find();
+        res.json(clients);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao buscar clientes' });
+    }
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 PlayBar Master Panel rodando na porta ${PORT}`);
+// 3. ROTA: Registrar um novo cliente
+app.post('/api/register', async (req, res) => {
+    try {
+        const newClient = new Client(req.body);
+        await newClient.save();
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(400).json({ ok: false, error: 'Erro ao registrar. Verifique se o ID já existe.' });
+    }
+});
+
+// 4. ROTA: Bloquear ou Desbloquear cliente
+app.post('/api/toggle-status', async (req, res) => {
+    try {
+        const { client_id, active } = req.body;
+        await Client.findOneAndUpdate({ client_id }, { active });
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(500).json({ ok: false, error: 'Erro ao atualizar status' });
+    }
+});
+
+// 5. ROTA: Excluir cliente permanentemente (NOVO)
+app.delete('/api/clients/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Client.findOneAndDelete({ client_id: id });
+        res.json({ ok: true, message: 'Cliente excluído com sucesso' });
+    } catch (error) {
+        res.status(500).json({ ok: false, error: 'Erro ao excluir cliente' });
+    }
+});
+
+// ==========================================
+// ROTAS DE COMUNICAÇÃO COM O BAR (CLIENTE)
+// ==========================================
+
+// 6. ROTA: O Bar consulta se está liberado
+app.get('/api/check-license', async (req, res) => {
+    try {
+        const { client_id } = req.query;
+        const client = await Client.findOne({ client_id });
+        if (client) {
+            res.json({ ok: true, active: client.active });
+        } else {
+            res.json({ ok: false, error: 'Cliente não encontrado' });
+        }
+    } catch (error) {
+        res.status(500).json({ ok: false });
+    }
+});
+
+// 7. ROTA: O Bar envia o faturamento do dia (para modelo % )
+app.post('/api/report-revenue', async (req, res) => {
+    try {
+        const { client_id, dailyRevenue } = req.body;
+        await Client.findOneAndUpdate({ client_id }, { dailyRevenue });
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(500).json({ ok: false });
+    }
+});
+
+// Rota padrão para carregar o HTML da página
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Iniciar o Servidor
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`🚀 PlayBar Master Panel rodando na porta ${PORT}`);
 });
