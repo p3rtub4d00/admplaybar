@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors'; // <-- CORS importado
+import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -13,13 +13,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// <-- CORS ativado para não bloquear o painel do bar
 app.use(cors()); 
-
 app.use(express.json());
 app.use(express.static('public'));
 
-// Inicializa o cliente do Mercado Pago usando a variável de ambiente
+// Inicializa o cliente do Mercado Pago
 const clientMP = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || 'SEU_ACCESS_TOKEN_AQUI' });
 
 mongoose.connect(process.env.MONGO_URI, {
@@ -37,6 +35,7 @@ const clientSchema = new mongoose.Schema({
     dueDate: String,
     active: { type: Boolean, default: true },
     dailyRevenue: { type: Number, default: 0 },
+    totalSales: { type: Number, default: 0 }, // <-- Adicionado para suportar o cálculo de porcentagem
     lastSeen: { type: Date, default: Date.now },
     trustUnlockUntil: { type: Date, default: null } 
 });
@@ -148,7 +147,7 @@ app.post('/api/trust-unlock', async (req, res) => {
 });
 
 // ==========================================
-// ROTA PARA GERAR O PIX DE PAGAMENTO DO CLIENTE
+// ROTA PARA GERAR O PIX DE PAGAMENTO (FIXO OU %)
 // ==========================================
 app.post('/api/create-pix', async (req, res) => {
     try {
@@ -159,18 +158,36 @@ app.post('/api/create-pix', async (req, res) => {
             return res.status(404).json({ ok: false, error: 'Cliente não encontrado' });
         }
 
+        // --- CÁLCULO INTELIGENTE DO VALOR DO PIX ---
+        let finalAmount = 99.90;
+        const contractModel = client.model || 'Aluguel Mensal (Fixo)';
+        const isPercentage = contractModel.includes('%') || contractModel.toLowerCase().includes('porcentagem');
+
+        if (isPercentage) {
+            // Se for porcentagem: calcula (Total de Vendas * Porcentagem / 100)
+            const totalSales = Number(client.totalSales) || 0;
+            const percentage = Number(client.value) || 0;
+            finalAmount = totalSales * (percentage / 100);
+            
+            if (finalAmount <= 0) {
+                finalAmount = 1.00; // Valor mínimo de segurança para o Mercado Pago aceitar
+            }
+        } else {
+            // Se for aluguel fixo: usa o valor direto cadastrado
+            finalAmount = Number(client.value) || 99.90;
+        }
+
         const payment = new Payment(clientMP);
         const body = {
-            transaction_amount: Number(client.value) || 99.90,
-            description: `Renovação Mensalidade PlayBar - ${client.name || client_id}`,
+            transaction_amount: Number(finalAmount.toFixed(2)),
+            description: `Acerto PlayBar (${contractModel}) - ${client.name || client_id}`,
             payment_method_id: 'pix',
             payer: {
                 email: `bar_${client_id}@playbar.com`,
                 first_name: client.name || 'Cliente PlayBar'
             },
             external_reference: client_id,
-            // <-- LINHA ADICIONADA: Aviso de pagamento para liberar o sistema automaticamente
-            notification_url: 'https://admplaybar.onrender.com/api/webhook/mercadopago' 
+            notification_url: 'https://admplaybar.onrender.com/api/webhook/mercadopago'  
         };
 
         const response = await payment.create({ body });
@@ -269,8 +286,12 @@ app.get('/api/check-license', async (req, res) => {
 
 app.post('/api/report-revenue', async (req, res) => {
     try {
-        const { client_id, dailyRevenue } = req.body;
-        await Client.findOneAndUpdate({ client_id }, { dailyRevenue, lastSeen: new Date() });
+        const { client_id, dailyRevenue, totalSales } = req.body;
+        const updateData = { lastSeen: new Date() };
+        if (dailyRevenue !== undefined) updateData.dailyRevenue = dailyRevenue;
+        if (totalSales !== undefined) updateData.totalSales = totalSales;
+
+        await Client.findOneAndUpdate({ client_id }, updateData);
         res.json({ ok: true });
     } catch (error) {
         res.status(500).json({ ok: false });
