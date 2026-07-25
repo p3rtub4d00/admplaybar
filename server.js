@@ -35,7 +35,8 @@ const clientSchema = new mongoose.Schema({
     dueDate: String,
     active: { type: Boolean, default: true },
     dailyRevenue: { type: Number, default: 0 },
-    totalSales: { type: Number, default: 0 }, // <-- Adicionado para suportar o cálculo de porcentagem
+    totalSales: { type: Number, default: 0 }, // Para suportar o cálculo de porcentagem
+    totalProfit: { type: Number, default: 0 }, // <-- ADICIONADO: Guarda o histórico de lucro
     lastSeen: { type: Date, default: Date.now },
     trustUnlockUntil: { type: Date, default: null } 
 });
@@ -231,9 +232,15 @@ app.post('/api/webhook/mercadopago', async (req, res) => {
                             client.active = true;
                             client.dueDate = formattedDueDate;
                             client.trustUnlockUntil = null;
+                            
+                            // <-- ADICIONADO: LÓGICA DE ZERAR VENDAS E SOMAR LUCRO -->
+                            const amountPaid = Number(paymentInfo.transaction_amount) || 0;
+                            client.totalProfit = (client.totalProfit || 0) + amountPaid;
+                            client.totalSales = 0; // Zera as vendas pro novo ciclo
+
                             await client.save();
 
-                            console.log(`[PIX APROVADO] Bar ${clientId} regularizado automaticamente via Webhook! Novo vencimento: ${formattedDueDate}`);
+                            console.log(`[PIX APROVADO] Bar ${clientId} pagou R$ ${amountPaid.toFixed(2)}. Sistema regularizado e vendas zeradas!`);
                         }
                     }
                 }
