@@ -97,8 +97,14 @@
         th { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; background: rgba(0,0,0,0.2); }
         tr:hover { background: rgba(255,255,255,0.02); }
         
+        /* Indicador Online/Offline */
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.offline { background: var(--gray); }
+
         .td-bar-name { font-weight: 600; font-size: 1.05rem; display: flex; flex-direction: column; gap: 4px; }
-        .td-bar-id { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
+        .td-bar-name-top { display: flex; align-items: center; }
+        .td-bar-id { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; padding-left: 18px; }
         
         .status-badge {
             padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
@@ -130,7 +136,7 @@
 
     <header class="topbar">
         <div class="brand"><i class="fa-solid fa-server"></i> Central PlayBar Mestre</div>
-        <button class="btn-logout" onclick="window.location.reload()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
+        <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Sair</button>
     </header>
 
     <div class="kpi-container">
@@ -241,6 +247,13 @@
                     kpiFaturamento += (client.value || 0);
                     kpiDiario += (client.dailyRevenue || 0);
 
+                    // Lógica para bolinha Online/Offline (5 minutos de tolerância)
+                    const lastSeenTime = new Date(client.lastSeen).getTime();
+                    const isOnline = (Date.now() - lastSeenTime) < 5 * 60 * 1000;
+                    const statusDot = isOnline 
+                        ? `<span class="status-dot online" title="Online (Player ativo agora)"></span>` 
+                        : `<span class="status-dot offline" title="Offline (Player fechado)"></span>`;
+
                     // Criação dos botões baseados no status
                     let toggleBtn = isBlocked 
                         ? `<button class="btn-sm btn-unlock" onclick="toggleStatus('${client.client_id}', true)" title="Liberar Sinal"><i class="fa-solid fa-lock-open"></i></button>
@@ -251,7 +264,9 @@
                     tr.innerHTML = `
                         <td>
                             <div class="td-bar-name">
-                                ${client.name || client.client_id}
+                                <div class="td-bar-name-top">
+                                    ${statusDot} ${client.name || client.client_id}
+                                </div>
                                 <span class="td-bar-id"><i class="fa-solid fa-fingerprint" style="font-size:0.7rem; color:var(--text-muted)"></i> ${client.client_id}</span>
                             </div>
                         </td>
@@ -298,7 +313,7 @@
             const url = editMode ? `/api/clients/${clientId}` : '/api/register';
             const method = editMode ? 'PUT' : 'POST';
 
-            if(!editMode) data.active = true; // Novo cliente sempre entra ativo
+            if(!editMode) data.active = true;
 
             const res = await fetch(url, {
                 method: method,
@@ -314,7 +329,6 @@
             }
         });
 
-        // Função para preencher o form com dados do cliente ao clicar em Editar
         window.startEdit = function(id, name, phone, date, value) {
             editMode = true;
             document.getElementById('form-title').innerText = "Editando Cadastro";
@@ -322,7 +336,7 @@
             document.getElementById('btn-cancel-edit').style.display = "block";
             
             document.getElementById('cli_id').value = id;
-            document.getElementById('cli_id').disabled = true; // Impede alteração do ID chave
+            document.getElementById('cli_id').disabled = true; 
             document.getElementById('cli_name').value = name !== 'undefined' ? name : '';
             document.getElementById('cli_phone').value = phone !== 'undefined' ? phone : '';
             document.getElementById('cli_date').value = date;
@@ -331,7 +345,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Função para cancelar edição e limpar formulário
         window.cancelEdit = function() {
             editMode = false;
             document.getElementById('form-title').innerText = "Cadastrar Novo Bar";
@@ -369,6 +382,15 @@
             if(confirm('Atenção: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este bar do banco de dados?')) {
                 await fetch(`/api/clients/${client_id}`, { method: 'DELETE' });
                 loadClients();
+            }
+        }
+
+        // ====== LOGOUT ======
+        window.logout = function() {
+            if(confirm('Deseja realmente sair do painel?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/'; 
             }
         }
 
