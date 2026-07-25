@@ -210,6 +210,8 @@
                             <th>ID do Sistema</th>
                             <th>Estabelecimento</th>
                             <th>Condição / Valores</th>
+                            <!-- NOVA COLUNA ADICIONADA -->
+                            <th>Lucro Histórico</th> 
                             <th>Vencimento</th>
                             <th>Status</th>
                             <th>Ações Administrativas</th>
@@ -217,7 +219,7 @@
                     </thead>
                     <tbody id="table-body">
                         <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Carregando dados do servidor...</td>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted);">Carregando dados do servidor...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -245,7 +247,7 @@
                 let kpiAtivos = 0, kpiFaturamento = 0, kpiDiario = 0;
 
                 if (clients.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
                     return;
                 }
 
@@ -307,6 +309,10 @@
                             </div>
                         </td>
                         <td>${financeHtml}</td>
+                        <!-- CÉLULA DO LUCRO HISTÓRICO ADICIONADA -->
+                        <td>
+                            <div style="font-weight: 700; color: var(--success);"><i class="fa-solid fa-sack-dollar"></i> R$ ${(client.totalProfit || 0).toFixed(2).replace('.', ',')}</div>
+                        </td>
                         <td style="font-weight: 600; color: ${isBlocked ? 'var(--danger)' : 'var(--text-main)'}">${formatDateBR(client.dueDate)}</td>
                         <td>
                             <span class="status-badge ${isBlocked ? 'bg-danger' : 'bg-success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
