@@ -63,7 +63,7 @@
 
         /* LAYOUT PRINCIPAL */
         .layout-grid {
-            display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;
+            display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;
         }
         .panel {
             background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;
@@ -71,7 +71,7 @@
         .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
         /* FORMULÁRIO */
-        .form-group { margin-bottom: 15px; }
+        .form-group { margin-bottom: 14px; }
         .form-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
         .form-control {
             width: 100%; background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main);
@@ -98,16 +98,17 @@
         tr:hover { background: rgba(255,255,255,0.02); }
         
         /* Indicador Online/Offline */
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
         .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
         .status-dot.offline { background: var(--gray); }
 
-        .td-bar-name { font-weight: 600; font-size: 1.05rem; display: flex; flex-direction: column; gap: 4px; }
-        .td-bar-name-top { display: flex; align-items: center; }
-        .td-bar-id { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; padding-left: 18px; }
-        
+        .id-badge {
+            background: var(--bg-body); border: 1px solid var(--border-color); padding: 4px 8px;
+            border-radius: 4px; font-family: monospace; font-size: 0.9rem; color: var(--primary); font-weight: 600;
+        }
+
         .status-badge {
-            padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-block;
         }
         .bg-success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
         .bg-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
@@ -161,7 +162,7 @@
             <div class="panel-title" id="form-title">Cadastrar Novo Bar</div>
             <form id="clientForm">
                 <div class="form-group">
-                    <label class="form-label">ID do Sistema</label>
+                    <label class="form-label">ID do Sistema (Único)</label>
                     <input type="text" id="cli_id" class="form-control" placeholder="Ex: bar_centro" required>
                 </div>
                 <div class="form-group">
@@ -173,11 +174,18 @@
                     <input type="text" id="cli_phone" class="form-control" placeholder="Ex: 69999999999">
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Modelo de Contrato</label>
+                    <select id="cli_model" class="form-control">
+                        <option value="Aluguel Mensal (Fixo)">Aluguel Mensal (Fixo)</option>
+                        <option value="Porcentagem (%)">Porcentagem (%)</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Data de Vencimento</label>
                     <input type="date" id="cli_date" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Mensalidade (R$)</label>
+                    <label class="form-label">Valor / Porcentagem (R$ ou %)</label>
                     <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="0.00" required>
                 </div>
                 
@@ -199,8 +207,9 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>ID do Sistema</th>
                             <th>Estabelecimento</th>
-                            <th>Mensalidade</th>
+                            <th>Condição / Valor</th>
                             <th>Vencimento</th>
                             <th>Status</th>
                             <th>Ações Administrativas</th>
@@ -208,7 +217,7 @@
                     </thead>
                     <tbody id="table-body">
                         <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Carregando dados do servidor...</td>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Carregando dados do servidor...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -236,7 +245,7 @@
                 let kpiAtivos = 0, kpiFaturamento = 0, kpiDiario = 0;
 
                 if (clients.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
                     return;
                 }
 
@@ -247,30 +256,35 @@
                     kpiFaturamento += (client.value || 0);
                     kpiDiario += (client.dailyRevenue || 0);
 
-                    // Lógica para bolinha Online/Offline (5 minutos de tolerância)
+                    // Indicador Online/Offline (5 minutos)
                     const lastSeenTime = new Date(client.lastSeen).getTime();
                     const isOnline = (Date.now() - lastSeenTime) < 5 * 60 * 1000;
                     const statusDot = isOnline 
-                        ? `<span class="status-dot online" title="Online (Player ativo agora)"></span>` 
-                        : `<span class="status-dot offline" title="Offline (Player fechado)"></span>`;
+                        ? `<span class="status-dot online" title="Online agora"></span>` 
+                        : `<span class="status-dot offline" title="Offline"></span>`;
 
-                    // Criação dos botões baseados no status
                     let toggleBtn = isBlocked 
                         ? `<button class="btn-sm btn-unlock" onclick="toggleStatus('${client.client_id}', true)" title="Liberar Sinal"><i class="fa-solid fa-lock-open"></i></button>
                            <button class="btn-sm btn-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio Confiança 24h"><i class="fa-solid fa-handshake"></i></button>` 
                         : `<button class="btn-sm btn-lock" onclick="toggleStatus('${client.client_id}', false)" title="Bloquear Sinal"><i class="fa-solid fa-lock"></i></button>`;
 
+                    const contractModel = client.model || 'Aluguel Mensal (Fixo)';
+                    const displayValue = contractModel.includes('%') 
+                        ? `${client.value}%` 
+                        : `R$ ${(client.value || 0).toFixed(2).replace('.', ',')}`;
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td><span class="id-badge">${client.client_id}</span></td>
                         <td>
-                            <div class="td-bar-name">
-                                <div class="td-bar-name-top">
-                                    ${statusDot} ${client.name || client.client_id}
-                                </div>
-                                <span class="td-bar-id"><i class="fa-solid fa-fingerprint" style="font-size:0.7rem; color:var(--text-muted)"></i> ${client.client_id}</span>
+                            <div style="display: flex; align-items: center; font-weight: 600; font-size: 1.02rem;">
+                                ${statusDot} ${client.name || client.client_id}
                             </div>
                         </td>
-                        <td style="font-weight: 600;">R$ ${(client.value || 0).toFixed(2).replace('.', ',')}</td>
+                        <td>
+                            <span style="font-weight: 600;">${displayValue}</span>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${contractModel}</div>
+                        </td>
                         <td style="font-weight: 600; color: ${isBlocked ? 'var(--danger)' : 'var(--text-main)'}">${formatDateBR(client.dueDate)}</td>
                         <td>
                             <span class="status-badge ${isBlocked ? 'bg-danger' : 'bg-success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
@@ -279,7 +293,7 @@
                             <div class="action-flex">
                                 ${toggleBtn}
                                 <a href="https://wa.me/55${client.phone}" target="_blank" class="btn-sm btn-wa" title="Chamar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-                                <button class="btn-sm btn-edit" onclick="startEdit('${client.client_id}', '${client.name || ''}', '${client.phone || ''}', '${client.dueDate}', ${client.value})" title="Editar Dados"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn-sm btn-edit" onclick="startEdit('${client.client_id}', '${client.name || ''}', '${client.phone || ''}', '${client.dueDate}', ${client.value}, '${contractModel}')" title="Editar Dados"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button class="btn-sm btn-delete" onclick="deleteClient('${client.client_id}')" title="Excluir Bar"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </td>
@@ -287,7 +301,6 @@
                     tbody.appendChild(tr);
                 });
 
-                // Atualiza Painéis Superiores
                 document.getElementById('kpi-ativos').innerText = kpiAtivos;
                 document.getElementById('kpi-faturamento').innerText = `R$ ${kpiFaturamento.toFixed(2).replace('.', ',')}`;
                 document.getElementById('kpi-diario').innerText = `R$ ${kpiDiario.toFixed(2).replace('.', ',')}`;
@@ -297,7 +310,7 @@
             }
         }
 
-        // ====== FUNÇÕES DE FORMULÁRIO (CRIAR E EDITAR) ======
+        // Formulário Submit (Criar ou Editar)
         document.getElementById('clientForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -306,6 +319,7 @@
                 client_id: clientId,
                 name: document.getElementById('cli_name').value,
                 phone: document.getElementById('cli_phone').value,
+                model: document.getElementById('cli_model').value,
                 dueDate: document.getElementById('cli_date').value,
                 value: document.getElementById('cli_value').value
             };
@@ -329,7 +343,7 @@
             }
         });
 
-        window.startEdit = function(id, name, phone, date, value) {
+        window.startEdit = function(id, name, phone, date, value, model) {
             editMode = true;
             document.getElementById('form-title').innerText = "Editando Cadastro";
             document.getElementById('btn-submit-form').innerText = "Salvar Alterações";
@@ -339,6 +353,7 @@
             document.getElementById('cli_id').disabled = true; 
             document.getElementById('cli_name').value = name !== 'undefined' ? name : '';
             document.getElementById('cli_phone').value = phone !== 'undefined' ? phone : '';
+            document.getElementById('cli_model').value = model && model !== 'undefined' ? model : 'Aluguel Mensal (Fixo)';
             document.getElementById('cli_date').value = date;
             document.getElementById('cli_value').value = value;
             
@@ -355,7 +370,6 @@
             document.getElementById('cli_id').disabled = false;
         }
 
-        // ====== FUNÇÕES ADMINISTRATIVAS ======
         window.toggleStatus = async function(client_id, makeActive) {
             if(confirm(`Deseja ${makeActive ? 'LIBERAR' : 'BLOQUEAR'} o sinal deste estabelecimento?`)) {
                 await fetch('/api/toggle-status', {
@@ -385,7 +399,6 @@
             }
         }
 
-        // ====== LOGOUT ======
         window.logout = function() {
             if(confirm('Deseja realmente sair do painel?')) {
                 localStorage.clear();
@@ -394,7 +407,6 @@
             }
         }
 
-        // Inicializa sistema
         window.onload = loadClients;
     </script>
 </body>
