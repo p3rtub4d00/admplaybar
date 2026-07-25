@@ -181,12 +181,12 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Data de Vencimento</label>
+                    <label class="form-label">Data de Vencimento / Acerto</label>
                     <input type="date" id="cli_date" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Valor / Porcentagem (R$ ou %)</label>
-                    <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="0.00" required>
+                    <label class="form-label">Valor Fixo (R$) ou Porcentagem (%)</label>
+                    <input type="number" step="0.01" id="cli_value" class="form-control" placeholder="Ex: 50.00 ou 25" required>
                 </div>
                 
                 <button type="submit" id="btn-submit-form" class="btn-submit">Salvar Cadastro</button>
@@ -209,7 +209,7 @@
                         <tr>
                             <th>ID do Sistema</th>
                             <th>Estabelecimento</th>
-                            <th>Condição / Valor</th>
+                            <th>Condição / Valores</th>
                             <th>Vencimento</th>
                             <th>Status</th>
                             <th>Ações Administrativas</th>
@@ -253,7 +253,19 @@
                     const isBlocked = !client.active;
                     
                     if (!isBlocked) kpiAtivos++;
-                    kpiFaturamento += (client.value || 0);
+                    
+                    // Tratamento de faturamento dependendo do modelo
+                    const contractModel = client.model || 'Aluguel Mensal (Fixo)';
+                    const isPercentage = contractModel.includes('%') || contractModel.toLowerCase().includes('porcentagem');
+
+                    if (isPercentage) {
+                        const totalVendido = client.totalSales || 0;
+                        const comissaoReceber = totalVendido * ((client.value || 0) / 100);
+                        kpiFaturamento += comissaoReceber; // Soma a comissão esperada no KPI se for porcentagem
+                    } else {
+                        kpiFaturamento += (client.value || 0);
+                    }
+
                     kpiDiario += (client.dailyRevenue || 0);
 
                     // Indicador Online/Offline (5 minutos)
@@ -268,10 +280,23 @@
                            <button class="btn-sm btn-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio Confiança 24h"><i class="fa-solid fa-handshake"></i></button>` 
                         : `<button class="btn-sm btn-lock" onclick="toggleStatus('${client.client_id}', false)" title="Bloquear Sinal"><i class="fa-solid fa-lock"></i></button>`;
 
-                    const contractModel = client.model || 'Aluguel Mensal (Fixo)';
-                    const displayValue = contractModel.includes('%') 
-                        ? `${client.value}%` 
-                        : `R$ ${(client.value || 0).toFixed(2).replace('.', ',')}`;
+                    // Montagem visual da coluna de Valores/Condição
+                    let financeHtml = '';
+                    if (isPercentage) {
+                        const percent = client.value || 0;
+                        const totalSold = client.totalSales || 0;
+                        const toReceive = totalSold * (percent / 100);
+                        financeHtml = `
+                            <div style="font-weight: 600; color: var(--warning);">${percent}% (Porcentagem)</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Vendas: R$ ${totalSold.toFixed(2).replace('.', ',')}</div>
+                            <div style="font-size: 0.8rem; color: var(--success); font-weight: 600;">A Receber: R$ ${toReceive.toFixed(2).replace('.', ',')}</div>
+                        `;
+                    } else {
+                        financeHtml = `
+                            <div style="font-weight: 600;">R$ ${(client.value || 0).toFixed(2).replace('.', ',')}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Aluguel Fixo</div>
+                        `;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -281,10 +306,7 @@
                                 ${statusDot} ${client.name || client.client_id}
                             </div>
                         </td>
-                        <td>
-                            <span style="font-weight: 600;">${displayValue}</span>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${contractModel}</div>
-                        </td>
+                        <td>${financeHtml}</td>
                         <td style="font-weight: 600; color: ${isBlocked ? 'var(--danger)' : 'var(--text-main)'}">${formatDateBR(client.dueDate)}</td>
                         <td>
                             <span class="status-badge ${isBlocked ? 'bg-danger' : 'bg-success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
