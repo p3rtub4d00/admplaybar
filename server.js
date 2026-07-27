@@ -282,7 +282,8 @@ app.get('/api/check-license', async (req, res) => {
                 }
             }
             
-            res.json({ ok: true, active: isActive });
+            // NOVO: Retorna os dados do cliente para que o painel de música calcule a comissão
+            res.json({ ok: true, active: isActive, client: client });
         } else {
             res.json({ ok: false, error: 'Cliente não encontrado' });
         }
