@@ -34,6 +34,7 @@ const clientSchema = new mongoose.Schema({
     value: Number,
     dueDate: String,
     active: { type: Boolean, default: true },
+    demoMode: { type: Boolean, default: false },
     dailyRevenue: { type: Number, default: 0 },
     totalSales: { type: Number, default: 0 }, // Para suportar o cálculo de porcentagem
     totalProfit: { type: Number, default: 0 }, // <-- ADICIONADO: Guarda o histórico de lucro
@@ -47,6 +48,7 @@ const Client = mongoose.model('Client', clientSchema);
 // FUNÇÃO INTELIGENTE DE AUTO-BLOQUEIO
 // ==========================================
 async function checkAutoBlock(client) {
+    if (client.demoMode) return client;
     if (!client.active || !client.dueDate) return client;
     
     const today = new Date();
@@ -121,6 +123,27 @@ app.post('/api/toggle-status', async (req, res) => {
     }
 });
 
+app.post('/api/toggle-demo', async (req, res) => {
+    try {
+        const { client_id, demoMode } = req.body;
+        const client = await Client.findOne({ client_id });
+
+        if (!client) {
+            return res.status(404).json({ ok: false, error: 'Cliente não encontrado' });
+        }
+
+        client.demoMode = Boolean(demoMode);
+        if (client.demoMode) {
+            client.trustUnlockUntil = null;
+        }
+
+        await client.save();
+        res.json({ ok: true, demoMode: client.demoMode });
+    } catch (error) {
+        res.status(500).json({ ok: false, error: 'Erro ao alterar modo demo' });
+    }
+});
+
 app.delete('/api/clients/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -157,6 +180,10 @@ app.post('/api/create-pix', async (req, res) => {
 
         if (!client) {
             return res.status(404).json({ ok: false, error: 'Cliente não encontrado' });
+        }
+
+        if (client.demoMode) {
+            return res.status(409).json({ ok: false, demo: true, error: 'Cliente em modo demo: não há cobrança.' });
         }
 
         // --- CÁLCULO INTELIGENTE DO VALOR DO PIX ---
@@ -269,9 +296,9 @@ app.get('/api/check-license', async (req, res) => {
             client.lastSeen = new Date();
             await client.save();
 
-            let isActive = client.active;
+            let isActive = client.demoMode ? true : client.active;
             
-            if (!isActive && client.trustUnlockUntil) {
+            if (!client.demoMode && !isActive && client.trustUnlockUntil) {
                 const now = new Date();
                 const expireDate = new Date(client.trustUnlockUntil);
                 if (now < expireDate) {
@@ -282,8 +309,8 @@ app.get('/api/check-license', async (req, res) => {
                 }
             }
             
-            // NOVO: Retorna os dados do cliente para que o painel de música calcule a comissão
-            res.json({ ok: true, active: isActive, client: client });
+            // Retorna também o modo demo para o PlayBar decidir se deve cobrar o cliente final.
+            res.json({ ok: true, active: isActive, demo: Boolean(client.demoMode), client: client });
         } else {
             res.json({ ok: false, error: 'Cliente não encontrado' });
         }
@@ -295,12 +322,21 @@ app.get('/api/check-license', async (req, res) => {
 app.post('/api/report-revenue', async (req, res) => {
     try {
         const { client_id, dailyRevenue, totalSales } = req.body;
-        const updateData = { lastSeen: new Date() };
-        if (dailyRevenue !== undefined) updateData.dailyRevenue = dailyRevenue;
-        if (totalSales !== undefined) updateData.totalSales = totalSales;
+        const client = await Client.findOne({ client_id });
 
-        await Client.findOneAndUpdate({ client_id }, updateData);
-        res.json({ ok: true });
+        if (!client) {
+            return res.status(404).json({ ok: false, error: 'Cliente não encontrado' });
+        }
+
+        // Em demo não contabilizamos faturamento/comissão.
+        client.lastSeen = new Date();
+        if (!client.demoMode) {
+            if (dailyRevenue !== undefined) client.dailyRevenue = dailyRevenue;
+            if (totalSales !== undefined) client.totalSales = totalSales;
+        }
+
+        await client.save();
+        res.json({ ok: true, demo: Boolean(client.demoMode) });
     } catch (error) {
         res.status(500).json({ ok: false });
     }
