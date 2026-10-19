@@ -21,6 +21,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --demo: #a855f7;
             --gray: #64748b;
         }
 
@@ -112,6 +113,7 @@
         }
         .bg-success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
         .bg-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .bg-demo { background: rgba(168, 85, 247, 0.16); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
 
         /* BOTOES DE AÇÃO DA TABELA */
         .action-flex { display: flex; gap: 6px; }
@@ -127,6 +129,8 @@
         .btn-lock { background-color: var(--danger); }
         .btn-unlock { background-color: var(--success); }
         .btn-trust { background-color: var(--warning); }
+        .btn-demo { background-color: #7c3aed; }
+        .btn-demo-active { background-color: #c084fc; color: #3b0764; box-shadow: 0 0 10px rgba(192,132,252,.35); }
 
         @media (max-width: 1024px) {
             .layout-grid { grid-template-columns: 1fr; }
@@ -152,6 +156,10 @@
         <div class="kpi-card">
             <span class="kpi-title">Receita Diária (Fichas)</span>
             <span class="kpi-value" id="kpi-diario">R$ 0,00</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-title">Sistemas em Demo</span>
+            <span class="kpi-value" id="kpi-demo">0</span>
         </div>
     </div>
 
@@ -244,7 +252,7 @@
                 const tbody = document.getElementById('table-body');
                 tbody.innerHTML = '';
                 
-                let kpiAtivos = 0, kpiFaturamento = 0, kpiDiario = 0;
+                let kpiAtivos = 0, kpiFaturamento = 0, kpiDiario = 0, kpiDemo = 0;
 
                 if (clients.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum estabelecimento cadastrado.</td></tr>`;
@@ -252,23 +260,27 @@
                 }
 
                 clients.forEach(client => {
-                    const isBlocked = !client.active;
+                    const isDemo = client.demoMode === true;
+                    const isBlocked = !client.active && !isDemo;
                     
                     if (!isBlocked) kpiAtivos++;
+                    if (isDemo) kpiDemo++;
                     
                     // Tratamento de faturamento dependendo do modelo
                     const contractModel = client.model || 'Aluguel Mensal (Fixo)';
                     const isPercentage = contractModel.includes('%') || contractModel.toLowerCase().includes('porcentagem');
 
-                    if (isPercentage) {
-                        const totalVendido = client.totalSales || 0;
-                        const comissaoReceber = totalVendido * ((client.value || 0) / 100);
-                        kpiFaturamento += comissaoReceber; // Soma a comissão esperada no KPI se for porcentagem
-                    } else {
-                        kpiFaturamento += (client.value || 0);
-                    }
+                    if (!isDemo) {
+                        if (isPercentage) {
+                            const totalVendido = client.totalSales || 0;
+                            const comissaoReceber = totalVendido * ((client.value || 0) / 100);
+                            kpiFaturamento += comissaoReceber;
+                        } else {
+                            kpiFaturamento += (client.value || 0);
+                        }
 
-                    kpiDiario += (client.dailyRevenue || 0);
+                        kpiDiario += (client.dailyRevenue || 0);
+                    }
 
                     // Indicador Online/Offline (5 minutos)
                     const lastSeenTime = new Date(client.lastSeen).getTime();
@@ -282,9 +294,16 @@
                            <button class="btn-sm btn-trust" onclick="trustUnlock('${client.client_id}')" title="Desbloqueio Confiança 24h"><i class="fa-solid fa-handshake"></i></button>` 
                         : `<button class="btn-sm btn-lock" onclick="toggleStatus('${client.client_id}', false)" title="Bloquear Sinal"><i class="fa-solid fa-lock"></i></button>`;
 
+                    const demoBtn = `<button class="btn-sm ${isDemo ? 'btn-demo-active' : 'btn-demo'}" onclick="toggleDemo('${client.client_id}', ${!isDemo})" title="${isDemo ? 'Desativar modo demo' : 'Ativar modo demo'}"><i class="fa-solid fa-flask"></i></button>`;
+
                     // Montagem visual da coluna de Valores/Condição
                     let financeHtml = '';
-                    if (isPercentage) {
+                    if (isDemo) {
+                        financeHtml = `
+                            <div style="font-weight: 700; color: #c084fc;"><i class="fa-solid fa-flask"></i> MODO DEMO</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Pedidos grátis • sem cobrança</div>
+                        `;
+                    } else if (isPercentage) {
                         const percent = client.value || 0;
                         const totalSold = client.totalSales || 0;
                         const toReceive = totalSold * (percent / 100);
@@ -315,10 +334,11 @@
                         </td>
                         <td style="font-weight: 600; color: ${isBlocked ? 'var(--danger)' : 'var(--text-main)'}">${formatDateBR(client.dueDate)}</td>
                         <td>
-                            <span class="status-badge ${isBlocked ? 'bg-danger' : 'bg-success'}">${isBlocked ? 'Bloqueado' : 'Ativo'}</span>
+                            <span class="status-badge ${isDemo ? 'bg-demo' : (isBlocked ? 'bg-danger' : 'bg-success')}">${isDemo ? 'Demo' : (isBlocked ? 'Bloqueado' : 'Ativo')}</span>
                         </td>
                         <td>
                             <div class="action-flex">
+                                ${demoBtn}
                                 ${toggleBtn}
                                 <a href="https://wa.me/55${client.phone}" target="_blank" class="btn-sm btn-wa" title="Chamar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
                                 <button class="btn-sm btn-edit" onclick="startEdit('${client.client_id}', '${client.name || ''}', '${client.phone || ''}', '${client.dueDate}', ${client.value}, '${contractModel}')" title="Editar Dados"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -332,6 +352,7 @@
                 document.getElementById('kpi-ativos').innerText = kpiAtivos;
                 document.getElementById('kpi-faturamento').innerText = `R$ ${kpiFaturamento.toFixed(2).replace('.', ',')}`;
                 document.getElementById('kpi-diario').innerText = `R$ ${kpiDiario.toFixed(2).replace('.', ',')}`;
+                document.getElementById('kpi-demo').innerText = kpiDemo;
 
             } catch (error) {
                 console.error("Erro ao carregar lista:", error);
@@ -405,6 +426,28 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ client_id, active: makeActive })
                 });
+                loadClients();
+            }
+        }
+
+        window.toggleDemo = async function(client_id, enableDemo) {
+            const action = enableDemo ? 'ATIVAR' : 'DESATIVAR';
+            const message = enableDemo
+                ? 'Ativar o MODO DEMO? Os pedidos de músicas ficarão grátis e não gerarão faturamento.'
+                : 'Desativar o MODO DEMO? O sistema voltará a cobrar normalmente.';
+
+            if (confirm(message)) {
+                const res = await fetch('/api/toggle-demo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id, demoMode: enableDemo })
+                });
+
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    alert(data.error || `Erro ao ${action.toLowerCase()} o modo demo.`);
+                    return;
+                }
                 loadClients();
             }
         }
